@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0f4f5f"/>
+  <rect x="78" y="76" width="1044" height="478" rx="16" fill="#f7faf9"/>
+  <rect x="126" y="132" width="104" height="104" rx="12" fill="#0f4f5f"/>
+  <text x="178" y="202" text-anchor="middle" font-family="Arial, sans-serif" font-size="68" font-weight="700" fill="#ffffff">R</text>
+  <text x="270" y="172" font-family="Arial, sans-serif" font-size="58" font-weight="700" fill="#14242b">RekoMed</text>
+  <text x="270" y="224" font-family="Arial, sans-serif" font-size="30" fill="#63747b">медицинские изделия для клиник и закупщиков</text>
+  <path d="M132 350h936M132 416h640M132 482h790" stroke="#1f8a70" stroke-width="22" stroke-linecap="round"/>
+  <text x="132" y="314" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#0f4f5f">КП, документы, подбор и поставка</text>
+</svg>

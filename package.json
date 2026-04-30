@@ -1,0 +1,37 @@
+{
+  "name": "rekomed-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "sync:current-site": "node scripts/sync-current-site.mjs",
+    "audit:urls": "node scripts/audit-urls.mjs"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "^3.84.0",
+    "@payloadcms/next": "^3.84.0",
+    "@payloadcms/richtext-lexical": "^3.84.0",
+    "lucide-react": "^0.468.0",
+    "next": "^16.2.2",
+    "nodemailer": "^8.0.6",
+    "payload": "^3.84.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^16.2.2",
+    "typescript": "^5.7.2"
+  }
+}

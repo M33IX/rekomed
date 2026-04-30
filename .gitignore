@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+dist
+coverage
+.env
+.env.local
+.env.*.local
+var
+*.log
+.playwright-cli
+payload-types.ts
+*.tsbuildinfo
