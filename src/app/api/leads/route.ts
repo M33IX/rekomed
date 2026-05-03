@@ -1,5 +1,8 @@
+import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
-import { leadSchema, sendEmailLead, sendTelegramLead, storeLead, type StoredLead } from '@/lib/leads'
+import { getPayload } from 'payload'
+import { leadSchema, sendVkLead, storeLeadFallback, type StoredLead } from '@/lib/leads'
+import { getSiteSettings } from '@/lib/site-settings'
 
 export const runtime = 'nodejs'
 
@@ -25,22 +28,21 @@ const rateLimit = (ip: string) => {
   return true
 }
 
+const getRawPayload = async (request: NextRequest) => {
+  const contentType = request.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) return request.json()
+
+  const form = await request.formData()
+  return Object.fromEntries(form.entries())
+}
+
 export async function POST(request: NextRequest) {
   const ip = getIp(request)
   if (!rateLimit(ip)) {
     return NextResponse.json({ ok: false, error: 'Слишком много заявок. Попробуйте позже.' }, { status: 429 })
   }
 
-  let raw: unknown
-  const contentType = request.headers.get('content-type') || ''
-  if (contentType.includes('application/json')) {
-    raw = await request.json()
-  } else {
-    const form = await request.formData()
-    raw = Object.fromEntries(form.entries())
-  }
-
-  const parsed = leadSchema.safeParse(raw)
+  const parsed = leadSchema.safeParse(await getRawPayload(request))
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message || 'Проверьте поля формы' }, { status: 400 })
   }
@@ -57,12 +59,58 @@ export async function POST(request: NextRequest) {
     userAgent: request.headers.get('user-agent') || ''
   }
 
+  const payloadData = {
+    type: 'callback' as const,
+    name: lead.name,
+    phone: lead.phone,
+    email: lead.email || undefined,
+    message: lead.message || undefined,
+    pageUrl: lead.pageUrl || undefined,
+    productId: lead.productId || undefined,
+    productTitle: lead.productTitle || undefined,
+    productSku: lead.productSku || undefined,
+    productPath: lead.productPath || undefined,
+    productCategory: lead.productCategory || undefined,
+    utm: lead.utm || undefined,
+    consent: lead.consent,
+    deliveryStatus: 'pending',
+    status: 'new'
+  }
+
   try {
-    await storeLead(lead)
-    await Promise.allSettled([sendTelegramLead(lead), sendEmailLead(lead)])
-    return NextResponse.json({ ok: true, id: lead.id })
+    const payload = await getPayload({ config })
+    const savedLead = await payload.create({
+      collection: 'leads',
+      data: payloadData as never,
+      overrideAccess: true
+    })
+
+    const settings = await getSiteSettings()
+    const delivery = await sendVkLead(lead, settings)
+
+    await payload.update({
+      collection: 'leads',
+      id: savedLead.id,
+      data: {
+        deliveryStatus: delivery.status,
+        vkMessageId: delivery.messageId,
+        deliveryError: delivery.error
+      } as never,
+      overrideAccess: true
+    })
+
+    return NextResponse.json({ ok: true, id: savedLead.id, deliveryStatus: delivery.status })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ ok: false, error: 'Заявка сохранена не полностью. Свяжитесь с нами по телефону.' }, { status: 500 })
+    console.error('Lead save failed', error instanceof Error ? error.message : 'Unknown error')
+    await storeLeadFallback({
+      ...lead,
+      deliveryStatus: 'failed',
+      deliveryError: error instanceof Error ? error.message : 'Lead CMS save failed'
+    })
+
+    return NextResponse.json(
+      { ok: false, error: 'Заявка сохранена не полностью. Свяжитесь с нами по телефону.' },
+      { status: 500 }
+    )
   }
 }

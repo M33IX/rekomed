@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { buildConfig } from 'payload'
+import sharp from 'sharp'
 import {
   Articles,
   Brands,
@@ -21,6 +22,7 @@ const dirname = path.dirname(filename)
 
 export default buildConfig({
   secret: process.env.PAYLOAD_SECRET || 'local-dev-secret-change-before-production',
+  sharp,
   admin: {
     user: Users.slug,
     meta: {

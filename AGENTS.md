@@ -16,9 +16,9 @@ RekoMed - новая версия сайта `https://reko-med.ru/`.
 
 ## Текущий статус
 
-Важное ограничение текущей версии: публичный сайт пока не читает каталог из Payload CMS/PostgreSQL.
+Публичный сайт читает товары, категории и бренды из Payload CMS/PostgreSQL через `src/lib/cms-content.ts`.
 
-Сейчас публичные страницы используют импортированный каталог из `src/data/current-site.generated.ts`. Этот файл генерируется скриптом `npm run sync:current-site` из живого старого сайта `https://reko-med.ru` и не должен редактироваться вручную.
+Импортированный каталог `src/data/current-site.generated.ts` остается fallback-источником и legacy-слоем для старых URL. Этот файл генерируется скриптом `npm run sync:current-site` из живого старого сайта `https://reko-med.ru` и не должен редактироваться вручную.
 
 Payload CMS уже подключен:
 
@@ -27,7 +27,7 @@ Payload CMS уже подключен:
 - модели коллекций и global-настроек описаны в `src/lib/payload-collections.ts`;
 - конфиг Payload находится в `src/payload.config.ts`.
 
-Следующий крупный backend/CMS-этап: импортировать generated-данные в Payload, добавить слой чтения из CMS и переключить публичные шаблоны на Payload как источник данных. До этого изменения товаров в админке не появляются автоматически на публичной витрине.
+Товары, созданные в `Products`, появляются на публичном сайте по `Legacy Path` или `/catalog/{slug}/`. Если PostgreSQL временно недоступна, витрина показывает generated-каталог.
 
 ## Технологии
 
@@ -37,8 +37,8 @@ Payload CMS уже подключен:
 - Payload CMS 3
 - PostgreSQL через `@payloadcms/db-postgres`
 - Zod для валидации заявок
-- Nodemailer для email-доставки заявок
-- Telegram Bot API через `fetch`
+- VK Messages API через `fetch` для доставки заявок Борису
+- JivoChat widget, управляемый через `Site Settings`
 - Lucide React для иконок
 - Docker / Docker Compose для production
 - nginx как reverse proxy
@@ -51,7 +51,13 @@ npm run dev
 npm run build
 npm run start
 npm run typecheck
+npm run payload:migrate
+npm run payload:migrate:create
+npm run payload:generate-importmap
+npm run payload:generate-types
 npm run sync:current-site
+npm run import:current-site
+npm run import:current-site-media
 npm run audit:urls
 ```
 
@@ -76,8 +82,8 @@ npm run audit:urls
 - `PAYLOAD_SECRET` - секрет Payload, обязателен для production;
 - `LEADS_STORAGE_FILENAME` - файл для локального хранения заявок внутри `var`;
 - `LEAD_RATE_LIMIT_PER_HOUR` - лимит заявок на IP;
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - Telegram-доставка заявок;
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `LEADS_EMAIL_TO`, `LEADS_EMAIL_FROM` - email-доставка заявок.
+- `VK_GROUP_TOKEN` - секрет VK-сообщества для доставки заявок Борису;
+- `VK_API_VERSION` - версия VK API, по умолчанию `5.199`.
 
 Не выводить и не переносить реальные секреты из `.env` в ответы, логи, документацию или коммиты.
 
@@ -86,16 +92,18 @@ npm run audit:urls
 ```text
 src/
   app/
-    [[...slug]]/page.tsx                    публичный catch-all route
+    (site)/layout.tsx                       публичный layout, JSON-LD, SiteChrome, Jivo
+    (site)/[[...slug]]/page.tsx             публичный catch-all route
+    (site)/not-found.tsx                    публичная 404
+    (payload)/layout.tsx                    Payload RootLayout и provider
+    (payload)/admin/importMap.js            сгенерированный Payload import map
     (payload)/admin/[[...segments]]/page.tsx Payload admin
     (payload)/api/payload/[...slug]/route.ts Payload REST API
     api/health/route.ts                     healthcheck
     api/leads/route.ts                      API приема заявок
-    layout.tsx                              общий layout, JSON-LD Organization/WebSite
     globals.css                             дизайн-система и responsive CSS
     robots.ts                               robots.txt
     sitemap.ts                              sitemap.xml
-    not-found.tsx                           404
   components/
     SiteChrome.tsx                          шапка, футер, нижний CTA
     MobileNav.tsx                           мобильное меню
@@ -105,7 +113,8 @@ src/
   data/
     current-site.generated.ts               импорт старого сайта, не редактировать вручную
   lib/
-    content.ts                              маршрутизация, контент, направления, навигация
+    content.ts                              статический контент, направления, навигация
+    cms-content.ts                          чтение каталога из Payload с fallback на generated
     leads.ts                                схема и доставка заявок
     payload-collections.ts                  коллекции Payload
     schema.ts                               JSON-LD схемы
@@ -125,15 +134,16 @@ deploy/
 
 ## Публичный frontend
 
-Главный публичный route: `src/app/[[...slug]]/page.tsx`.
+Главный публичный route: `src/app/(site)/[[...slug]]/page.tsx`.
 
 Поток рендера:
 
-1. `generateStaticParams()` собирает legacy URL из `currentSitePages`, посадочные направления, `/catalog/` и `/documents/`.
-2. `getRoutePage()` из `src/lib/content.ts` нормализует slug и определяет тип страницы.
-3. `getMetaForRoute()` строит metadata и canonical.
-4. `templates.tsx` выбирает нужный шаблон.
-5. `JsonLd` добавляет `BreadcrumbList`, а для товара еще `Product`.
+1. `getPublicContent()` из `src/lib/cms-content.ts` читает Payload collections `products`, `categories`, `brands`.
+2. Если CMS недоступна, `cms-content.ts` возвращает generated fallback из `src/data/current-site.generated.ts`.
+3. `getRoutePage()` нормализует slug и определяет тип страницы по CMS+generated карте URL.
+4. `getMetaForRoute()` строит metadata и canonical.
+5. `templates.tsx` выбирает нужный шаблон.
+6. `JsonLd` добавляет `BreadcrumbList`, а для товара еще `Product`.
 
 Типы публичных страниц:
 
@@ -159,9 +169,9 @@ API: `src/app/api/leads/route.ts`.
 
 Бизнес-логика и delivery: `src/lib/leads.ts`.
 
-`POST /api/leads` принимает JSON или form-data, валидирует через Zod, проверяет honeypot `companyWebsite`, применяет in-memory rate limit по IP, сохраняет заявку в `var/<LEADS_STORAGE_FILENAME>`, затем через `Promise.allSettled` пробует отправить ее в Telegram и email.
+`POST /api/leads` принимает JSON или form-data, валидирует через Zod, проверяет honeypot `companyWebsite`, применяет in-memory rate limit по IP, сохраняет заявку в Payload collection `leads`, затем пробует отправить ее Борису в VK через `messages.send`. Если заявка пришла со страницы товара, в payload уходят название, артикул, категория и ссылка на товар.
 
-Файл локального хранения заявок находится в `var`, эта директория игнорируется git.
+Файл локального хранения заявок в `var` используется только как аварийный fallback, если CMS временно недоступна.
 
 Типы заявок:
 
@@ -189,14 +199,14 @@ Global:
 
 - `site-settings`
 
-CMS-модель уже содержит поля для SEO, legacy path, товаров, категорий, документов и заявок. Но frontend пока берет данные не из CMS, а из generated-файла.
+CMS-модель содержит поля для SEO, legacy path, товаров, категорий, документов и заявок. Frontend читает `products`, `categories` и `brands` через `src/lib/cms-content.ts`, а generated-файл использует как fallback.
 
 При изменении схемы Payload проверять:
 
 - `src/lib/payload-collections.ts`;
 - `src/payload.config.ts`;
 - `payload-types.ts`, если типы регенерируются;
-- публичный слой чтения данных, когда он будет добавлен.
+- `src/lib/cms-content.ts`, если меняются поля товаров, категорий или брендов.
 
 ## Импорт старого каталога
 
@@ -219,12 +229,32 @@ CMS-модель уже содержит поля для SEO, legacy path, то�
 
 После любого запуска `sync:current-site` проверять diff generated-файла и запускать `npm run audit:urls`.
 
+`npm run import:current-site -- --prune`:
+
+- читает `src/data/current-site.generated.ts`;
+- авторизуется в Payload REST API через `PAYLOAD_IMPORT_EMAIL` / `PAYLOAD_IMPORT_PASSWORD` или локальные тестовые данные;
+- создает/обновляет категории, бренды и товары в Payload;
+- сохраняет legacy path, старый ID, SEO title/description, описание и характеристики;
+- проставляет связи товар -> категория и товар -> бренд, если бренд найден в названии товара;
+- с `--prune` удаляет тестовые/лишние товары, категории и бренды, которых нет в generated-источнике.
+
+Для другого окружения можно задать `PAYLOAD_API_URL`, например `http://localhost:3000/api/payload`.
+
+`npm run import:current-site-media`:
+
+- читает image URL из `src/data/current-site.generated.ts`;
+- скачивает изображения со старого сайта;
+- загружает их в Payload `Media`;
+- привязывает товарные картинки к `products.image`, а логотипы к `brands.logo`.
+
+После успешного импорта публичная витрина использует локальные `/api/payload/media/file/...`, а не внешние `https://reko-med.ru/upload/...`.
+
 ## SEO
 
 SEO-слой находится в:
 
-- `src/app/layout.tsx`;
-- `src/app/[[...slug]]/page.tsx`;
+- `src/app/(site)/layout.tsx`;
+- `src/app/(site)/[[...slug]]/page.tsx`;
 - `src/app/robots.ts`;
 - `src/app/sitemap.ts`;
 - `src/lib/schema.ts`;
@@ -292,7 +322,10 @@ Docker Compose поднимает:
 - `postgres` на `postgres:16-alpine`;
 - `app`, который слушает порт `3000`;
 - volume для PostgreSQL;
-- volume `lead_storage` для `/app/var`.
+- volume `lead_storage` для `/app/var`;
+- volume `media_storage` для `/app/media`, куда Payload сохраняет изображения, PDF и другие uploads.
+
+В `Dockerfile` entrypoint на старте создает `/app/var` и `/app/media`, выставляет владельца `nextjs:nodejs`, затем запускает приложение через `su-exec`. Это важно для named volumes: Docker может создать volume от root, и без runtime `chown` загрузка файлов в Payload падает с `EACCES: permission denied, open 'media/...'`.
 
 Проверки после деплоя:
 
@@ -311,18 +344,17 @@ curl https://reko-med.ru/sitemap.xml
 - Не выводить реальные секреты из `.env`.
 - Не менять публичные legacy URL без явной причины: это важная часть SEO-миграции.
 - Не подключать публичную витрину к CMS частично без fallback или проверки sitemap/legacy paths.
-- Для заявки падение Telegram или SMTP не должно ломать успешное локальное сохранение.
+- Для заявки падение VK-доставки не должно ломать успешное сохранение в Payload CMS.
 - Для Payload/Postgres не убирать `serverExternalPackages` из `next.config.ts` без проверки `npm run build`.
+- После изменения Payload collections создавать миграцию через `npm run payload:migrate:create`; production Docker перед стартом выполняет `payload migrate`.
+- После добавления/изменения Payload admin components или richtext features регенерировать `src/app/(payload)/admin/importMap.js` через `npm run payload:generate-importmap`.
 
 ## Хорошие следующие задачи
 
 Приоритетный roadmap:
 
 1. Написать seed/import: `current-site.generated.ts` -> Payload collections.
-2. Создать read-service, например `src/lib/cms-content.ts`, с fallback на generated-файл.
-3. Переключить `getRoutePage`, sitemap и публичные шаблоны на CMS-данные.
-4. Добавить проверку: товар, созданный в `/admin`, появляется на публичной странице.
-5. Улучшить каталог: поиск, фильтры по характеристикам, бренды, документы к товарам.
-6. Подключить `site-settings` к шапке, футеру и CTA.
-7. Добавить тесты/acceptance checks для заявок, sitemap и ключевых legacy URL.
-
+2. Улучшить каталог: поиск, фильтры по характеристикам, бренды, документы к товарам.
+3. Добавить acceptance tests: товар, созданный в `/admin`, появляется на публичной странице.
+4. Добавить полноценные публичные страницы документов и связей товар-документ.
+5. Добавить тесты для заявок, sitemap и ключевых legacy URL.

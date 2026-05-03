@@ -1,25 +1,40 @@
 import Link from 'next/link'
 import { Mail, MapPin, Phone, Send } from 'lucide-react'
 import { company, navigation } from '@/lib/content'
-import { LeadForm } from '@/components/LeadForm'
 import { MobileNav } from '@/components/MobileNav'
+import type { PublicSiteSettings } from '@/lib/site-settings'
 
 type SiteChromeProps = {
   children: React.ReactNode
+  settings: PublicSiteSettings
 }
 
-export function SiteChrome({ children }: SiteChromeProps) {
+const getPhoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
+const getEmailHref = (email: string) => `mailto:${email}`
+const leadHref = '/contacts/stores/#lead'
+const legalLinks = [
+  { href: '/privacy/', label: 'Политика обработки ПД' },
+  { href: '/consent/', label: 'Согласие на обработку ПД' },
+  { href: '/terms/', label: 'Пользовательское соглашение' },
+  { href: '/legal/', label: 'Юридическая информация' },
+  { href: '/license/', label: 'Лицензии и документы' }
+]
+
+export function SiteChrome({ children, settings }: SiteChromeProps) {
+  const phoneHref = getPhoneHref(settings.phone)
+  const emailHref = getEmailHref(settings.email)
+
   return (
     <>
       <header className="site-header">
         <div className="topbar">
           <span>
             <MapPin size={16} aria-hidden="true" />
-            {company.address}
+            {settings.address}
           </span>
-          <a href={company.emailHref}>
+          <a href={emailHref}>
             <Mail size={16} aria-hidden="true" />
-            {company.email}
+            {settings.email}
           </a>
         </div>
         <div className="nav-shell">
@@ -38,27 +53,19 @@ export function SiteChrome({ children }: SiteChromeProps) {
             ))}
           </nav>
           <div className="header-actions">
-            <a className="phone-link" href={company.phoneHref}>
+            <a className="phone-link" href={phoneHref}>
               <Phone size={17} aria-hidden="true" />
-              {company.phone}
+              {settings.phone}
             </a>
-            <Link className="outline-action" href="#lead">
+            <Link className="outline-action" href={leadHref}>
               <Send size={17} aria-hidden="true" />
               КП
             </Link>
-            <MobileNav />
+            <MobileNav phone={settings.phone} phoneHref={phoneHref} leadHref={leadHref} />
           </div>
         </div>
       </header>
       <main>{children}</main>
-      <section className="bottom-cta" id="lead">
-        <div>
-          <span className="section-kicker">Заявка менеджеру</span>
-          <h2>Нужно КП, наличие или документы на изделие?</h2>
-          <p>Отправьте запрос: мы уточним позицию, подберём аналог или подготовим документы для закупки.</p>
-        </div>
-        <LeadForm compact title="Быстрая заявка" />
-      </section>
       <footer className="site-footer">
         <div>
           <Link className="brand inverted" href="/">
@@ -76,13 +83,22 @@ export function SiteChrome({ children }: SiteChromeProps) {
               {item.label}
             </Link>
           ))}
+          {legalLinks.map((item) => (
+            <Link key={item.href} href={item.href}>
+              {item.label}
+            </Link>
+          ))}
         </div>
         <div className="footer-contacts">
-          <a href={company.phoneHref}>{company.phone}</a>
-          <a href={company.emailHref}>{company.email}</a>
+          <a href={phoneHref}>{settings.phone}</a>
+          <a href={emailHref}>{settings.email}</a>
+          {settings.vkUrl && <a href={settings.vkUrl}>VK</a>}
           <span>{company.hours}</span>
         </div>
       </footer>
+      {settings.medicalDisclaimerEnabled && settings.medicalDisclaimerText && (
+        <div className="medical-disclaimer">{settings.medicalDisclaimerText}</div>
+      )}
     </>
   )
 }

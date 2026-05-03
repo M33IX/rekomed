@@ -1,0 +1,55 @@
+{
+  "topSections": [
+    "neyrokhirurgiya",
+    "travmatologiya",
+    "ortopediya",
+    "khirurgiya",
+    "oborudovanie",
+    "otolaringologiya",
+    "reabilitatsiya",
+    "stomatologiya"
+  ],
+  "virtualCategories": {
+    "neyrokhirurgiya": {
+      "title": "Нейрохирургия",
+      "path": "/nejrohirurgiya/"
+    },
+    "oborudovanie": {
+      "title": "Оборудование",
+      "path": "/medicinskoe-oborudovanie/",
+      "imageSections": ["mikroskopy", "kombayny"]
+    }
+  },
+  "children": {
+    "neyrokhirurgiya": [
+      "halo_apparaty",
+      "keydzhi",
+      "instrumenty",
+      "plastiny_dlya_neyrokhirurgii",
+      "tverdaya_mozgovaya_obolochka",
+      "tpf"
+    ],
+    "keydzhi": ["sheynyy_keydzh", "poyasnichnyy_keydzh"],
+    "instrumenty": ["pintsety", "styazhki"],
+    "tpf": ["sterzhni_neyrokhirurgiya", "vinty_dlya_neyrokhirurgii"],
+    "travmatologiya": ["shtift", "plastiny", "vinty", "Apparat_ilizarova_", "sterzhnevye_apparaty"],
+    "ortopediya": ["endoprotezy_tazobedrennogo_sustava_", "endoprotezy_kolennyy_sustav"],
+    "endoprotezy_tazobedrennogo_sustava_": [
+      "endoprotezy",
+      "nozhki_endoproteza",
+      "golovki_endoproteza",
+      "vpadiny_endoproteza"
+    ],
+    "endoprotezy_kolennyy_sustav": [
+      "implant_kolennogo_sustava",
+      "bedrennyy_komponent_kolennogo_sustava",
+      "insert_kolennogo_sustava",
+      "nadkolennik"
+    ],
+    "khirurgiya": ["setki_gryzhevye", "shovnyy_material"],
+    "oborudovanie": [],
+    "otolaringologiya": ["mikroskopy", "kombayny"],
+    "reabilitatsiya": [],
+    "stomatologiya": ["shovnyy_material_stomatologiy"]
+  }
+}

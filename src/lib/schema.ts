@@ -1,26 +1,39 @@
 import { company, getCanonical, siteUrl } from '@/lib/content'
 import type { CurrentSitePage } from '@/data/current-site.generated'
+import type { PublicSiteSettings } from '@/lib/site-settings'
 
-export const organizationSchema = {
+const getSameAs = (settings?: PublicSiteSettings) =>
+  [settings?.vkUrl, settings?.telegram].filter((value): value is string => Boolean(value))
+
+export const organizationSchema = (settings?: PublicSiteSettings) => {
+  const legalName = settings?.legalName || company.legalName
+  const address = settings?.legalAddress || settings?.address || company.address
+  const sameAs = getSameAs(settings)
+
+  return {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: company.name,
-  legalName: company.legalName,
+  legalName,
   url: siteUrl,
-  email: company.email,
-  telephone: company.phone,
+  email: settings?.email || company.email,
+  telephone: settings?.phone || company.phone,
+  ...(settings?.legalInn ? { taxID: settings.legalInn } : {}),
+  ...(settings?.legalOgrn ? { identifier: settings.legalOgrn } : {}),
   address: {
     '@type': 'PostalAddress',
     addressLocality: 'Воронеж',
-    streetAddress: 'ул. Димитрова, д. 56а',
+    streetAddress: address,
     addressCountry: 'RU'
   },
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'sales',
-    telephone: company.phone,
-    email: company.email,
+    telephone: settings?.phone || company.phone,
+    email: settings?.email || company.email,
     availableLanguage: 'ru'
+  },
+  ...(sameAs.length ? { sameAs } : {})
   }
 }
 
@@ -65,4 +78,12 @@ export const productSchema = (product: CurrentSitePage) => ({
     priceCurrency: 'RUB',
     url: getCanonical(product.path)
   }
+})
+
+export const aboutPageSchema = (settings?: PublicSiteSettings) => ({
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'О компании RekoMed',
+  url: getCanonical('/company/'),
+  mainEntity: organizationSchema(settings)
 })

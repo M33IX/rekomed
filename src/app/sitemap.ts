@@ -1,13 +1,18 @@
 import type { MetadataRoute } from 'next'
-import { currentSiteGeneratedAt, currentSitePages, directions, siteUrl } from '@/lib/content'
+import { directions, siteUrl } from '@/lib/content'
+import { getPublicContent } from '@/lib/cms-content'
+import { legalPagePaths } from '@/lib/legal-pages'
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date(currentSiteGeneratedAt)
-  const staticPaths = ['/catalog/', '/documents/', ...directions.map((direction) => `/${direction.slug}/`)]
+export const revalidate = 30
 
-  const legacyUrls = currentSitePages.map((page) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const content = await getPublicContent()
+  const lastModified = new Date(content.generatedAt)
+  const staticPaths = ['/catalog/', '/documents/', ...legalPagePaths, ...directions.map((direction) => `/${direction.slug}/`)]
+
+  const pageUrls = content.pages.map((page) => ({
     url: `${siteUrl}${page.path}`,
-    lastModified,
+    lastModified: page.updatedAt ? new Date(page.updatedAt) : lastModified,
     changeFrequency: page.kind === 'product' ? ('monthly' as const) : ('weekly' as const),
     priority: page.kind === 'home' ? 1 : page.kind === 'product' ? 0.7 : 0.8
   }))
@@ -19,5 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.85
   }))
 
-  return [...legacyUrls, ...staticUrls]
+  return [...staticUrls, ...pageUrls].filter(
+    (item, index, items) => items.findIndex((candidate) => candidate.url === item.url) === index
+  )
 }

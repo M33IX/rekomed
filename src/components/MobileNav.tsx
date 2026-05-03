@@ -5,7 +5,13 @@ import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { company, navigation } from '@/lib/content'
 
-export function MobileNav() {
+type MobileNavProps = {
+  phone?: string
+  phoneHref?: string
+  leadHref?: string
+}
+
+export function MobileNav({ phone = company.phone, phoneHref = company.phoneHref, leadHref = '/contacts/stores/#lead' }: MobileNavProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -23,8 +29,8 @@ export function MobileNav() {
             ))}
           </nav>
           <div className="mobile-drawer-actions">
-            <a href={company.phoneHref}>{company.phone}</a>
-            <a href="#lead" onClick={() => setOpen(false)}>
+            <a href={phoneHref}>{phone}</a>
+            <a href={leadHref} onClick={() => setOpen(false)}>
               Получить КП
             </a>
           </div>

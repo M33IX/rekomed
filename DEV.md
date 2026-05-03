@@ -10,10 +10,10 @@
 
 Текущий важный статус:
 
-- публичная витрина сейчас берёт каталог из `src/data/current-site.generated.ts`;
-- этот generated-файл создаётся скриптом `npm run sync:current-site` из текущего публичного сайта `https://reko-med.ru`;
-- Payload CMS уже подключён как админка, API и модель данных, но публичные страницы пока не читают товары напрямую из PostgreSQL/Payload;
-- следующий логичный backend-этап: импортировать generated-данные в Payload и переключить публичные шаблоны на CMS как источник данных.
+- публичная витрина читает товары, категории и бренды из Payload CMS/PostgreSQL через `src/lib/cms-content.ts`;
+- `src/data/current-site.generated.ts` остается fallback-источником и legacy-слоем для старых URL;
+- generated-файл создаётся скриптом `npm run sync:current-site` из текущего публичного сайта `https://reko-med.ru`;
+- публичный catch-all route рендерится динамически, чтобы изменения из админки появлялись без пересборки проекта.
 
 ## 2. Технологии И Зависимости
 
@@ -24,8 +24,8 @@
 - TypeScript
 - Payload CMS 3
 - PostgreSQL через `@payloadcms/db-postgres`
-- Nodemailer для email-заявок
-- Telegram Bot API через `fetch`
+- VK Messages API через `fetch` для отправки заявок Борису
+- JivoChat widget через CMS-настройку
 - Zod для валидации заявок
 - Lucide React для иконок
 - Docker / Docker Compose для production-сборки
@@ -39,7 +39,13 @@ npm run dev
 npm run build
 npm run start
 npm run typecheck
+npm run payload:migrate
+npm run payload:migrate:create
+npm run payload:generate-importmap
+npm run payload:generate-types
 npm run sync:current-site
+npm run import:current-site
+npm run import:current-site-media
 npm run audit:urls
 ```
 
@@ -60,18 +66,21 @@ npm audit --audit-level=high
 .
 ├── src/
 │   ├── app/
-│   │   ├── [[...slug]]/page.tsx
+│   │   ├── (site)/layout.tsx
+│   │   ├── (site)/[[...slug]]/page.tsx
+│   │   ├── (site)/not-found.tsx
+│   │   ├── (payload)/layout.tsx
+│   │   ├── (payload)/admin/importMap.js
 │   │   ├── (payload)/admin/[[...segments]]/page.tsx
 │   │   ├── (payload)/api/payload/[...slug]/route.ts
 │   │   ├── api/health/route.ts
 │   │   ├── api/leads/route.ts
-│   │   ├── layout.tsx
 │   │   ├── globals.css
 │   │   ├── robots.ts
-│   │   ├── sitemap.ts
-│   │   └── not-found.tsx
+│   │   └── sitemap.ts
 │   ├── components/
 │   │   ├── LeadForm.tsx
+│   │   ├── JivoChatWidget.tsx
 │   │   ├── MobileNav.tsx
 │   │   ├── SiteChrome.tsx
 │   │   ├── JsonLd.tsx
@@ -82,6 +91,7 @@ npm audit --audit-level=high
 │   │   ├── content.ts
 │   │   ├── leads.ts
 │   │   ├── payload-collections.ts
+│   │   ├── site-settings.ts
 │   │   └── schema.ts
 │   └── payload.config.ts
 ├── scripts/
@@ -106,7 +116,7 @@ npm audit --audit-level=high
 
 Публичный фронт лежит в:
 
-- `src/app/[[...slug]]/page.tsx` — единый catch-all роутер публичных страниц.
+- `src/app/(site)/[[...slug]]/page.tsx` — единый catch-all роутер публичных страниц.
 - `src/components/templates.tsx` — шаблоны главной, направления, каталога, категории, товара, бренда, документов и инфостраниц.
 - `src/components/SiteChrome.tsx` — шапка, футер, общий CTA-блок.
 - `src/components/MobileNav.tsx` — мобильное меню.
@@ -115,8 +125,8 @@ npm audit --audit-level=high
 
 Главная идея фронта:
 
-- `[[...slug]]/page.tsx` получает slug;
-- `getRoutePage()` из `src/lib/content.ts` определяет тип страницы;
+- `(site)/[[...slug]]/page.tsx` получает slug;
+- `getPublicContent()` и `getRoutePage()` из `src/lib/cms-content.ts` получают CMS+fallback данные и определяют тип страницы;
 - нужный шаблон из `templates.tsx` рендерит страницу;
 - SEO metadata генерируется через `generateMetadata`;
 - JSON-LD добавляется через `JsonLd`.
@@ -149,16 +159,19 @@ Backend-части находятся в `src/app/api` и `src/lib`.
 
 ```ts
 {
-  type: 'quote' | 'availability' | 'selection' | 'documents' | 'callback'
+  type: 'callback'
   name: string
   phone: string
   email?: string
   message?: string
   pageUrl?: string
   productId?: string
+  productTitle?: string
+  productSku?: string
+  productPath?: string
+  productCategory?: string
   consent: true
   utm?: Record<string, string>
-  fileName?: string
 }
 ```
 
@@ -167,10 +180,11 @@ Backend-части находятся в `src/app/api` и `src/lib`.
 - валидирует данные через Zod;
 - проверяет honeypot `companyWebsite`;
 - ограничивает частоту заявок по IP;
-- пишет заявку в `var/leads.jsonl`;
-- отправляет в Telegram, если заполнены `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`;
-- отправляет email, если заполнены SMTP-переменные;
-- не падает, если Telegram/SMTP не настроены: локальная запись остаётся.
+- сохраняет заявку в Payload collection `leads`;
+- если заявка отправлена со страницы товара, сохраняет название, артикул, категорию и ссылку на товар;
+- отправляет заявку в VK Борису через `messages.send`, если в `.env` есть `VK_GROUP_TOKEN`, а в `Site Settings` включён `vkLeadEnabled` и заполнен `vkRecipientPeerId`;
+- если VK недоступен, заявка остаётся в CMS, а ошибка пишется в поля `deliveryStatus`/`deliveryError`;
+- если CMS временно недоступна, пишет аварийную копию в `var/leads.jsonl` и возвращает ошибку формы.
 
 ### Healthcheck
 
@@ -213,9 +227,9 @@ Next route-файлы:
 
 Global:
 
-- `site-settings` — телефон, email, адрес, Telegram, основной CTA
+- `site-settings` — контакты, тексты формы, JivoChat, VK-доставка заявок и основной CTA
 
-Важное ограничение текущей версии: публичный сайт пока не читает товары и категории из Payload. Он читает `src/data/current-site.generated.ts`. Payload готов как CMS-слой и API, но для полного CMS-режима нужно сделать импорт данных в PostgreSQL и заменить чтение generated-файла на Payload queries.
+Публичный сайт читает товары, категории и бренды из Payload через `src/lib/cms-content.ts`. `src/data/current-site.generated.ts` используется как fallback и legacy-слой, чтобы старые URL продолжали работать даже при временной недоступности PostgreSQL.
 
 ## 7. Данные Каталога И URL
 
@@ -250,6 +264,22 @@ npm run sync:current-site
 npm run audit:urls
 ```
 
+Импорт generated-каталога в Payload:
+
+```bash
+npm run import:current-site -- --prune
+```
+
+Скрипт читает `src/data/current-site.generated.ts`, подключается к Payload REST API (`PAYLOAD_API_URL`, по умолчанию `http://localhost:3000/api/payload`) и авторизуется через `PAYLOAD_IMPORT_EMAIL` / `PAYLOAD_IMPORT_PASSWORD` или локальные тестовые данные. Он upsert-ит категории, бренды и товары, сохраняет legacy URL, старые ID, SEO title/description и характеристики, а также проставляет связи товар → категория и товар → бренд. Флаг `--prune` удаляет заглушки и записи, которых больше нет в generated-источнике.
+
+Импорт изображений в Payload Media:
+
+```bash
+npm run import:current-site-media
+```
+
+Скрипт скачивает image URL из generated-файла, загружает файлы в Payload `Media`, затем проставляет `products.image` и `brands.logo`. После этого публичный сайт использует локальные `/api/payload/media/file/...` и не зависит от `/upload` старого сайта.
+
 Он показывает количество живых URL и список URL из sitemap, которые старый сайт уже отдаёт как 404.
 
 Последний импорт:
@@ -267,8 +297,8 @@ SEO-файлы:
 - `src/app/robots.ts`
 - `src/app/sitemap.ts`
 - `src/lib/schema.ts`
-- `src/app/[[...slug]]/page.tsx`
-- `src/app/layout.tsx`
+- `src/app/(site)/[[...slug]]/page.tsx`
+- `src/app/(site)/layout.tsx`
 - `public/og-rekomed.svg`
 
 Реализовано:
@@ -309,16 +339,8 @@ PAYLOAD_SECRET=local-secret-change-me
 LEADS_STORAGE_FILENAME=leads.jsonl
 LEAD_RATE_LIMIT_PER_HOUR=12
 
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-
-SMTP_HOST=
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=
-SMTP_PASS=
-LEADS_EMAIL_TO=
-LEADS_EMAIL_FROM=site@reko-med.ru
+VK_GROUP_TOKEN=
+VK_API_VERSION=5.199
 ```
 
 Что важно:
@@ -326,9 +348,9 @@ LEADS_EMAIL_FROM=site@reko-med.ru
 - `NEXT_PUBLIC_SITE_URL` влияет на canonical, sitemap и schema.
 - `DATABASE_URL` нужен для Payload CMS.
 - `PAYLOAD_SECRET` обязателен для production.
-- `LEADS_EMAIL_TO` меняет адрес, куда приходят заявки.
-- `TELEGRAM_CHAT_ID` меняет чат Telegram для заявок.
-- `LEADS_STORAGE_FILENAME` задаёт имя файла внутри папки `var`.
+- `VK_GROUP_TOKEN` нужен для отправки заявок через VK-сообщество.
+- `LEADS_STORAGE_FILENAME` задаёт имя fallback-файла внутри папки `var`.
+- `Jivo Widget ID`, `Vk Lead Enabled`, `Vk Recipient Peer ID`, тексты формы и контакты меняются в Payload `Site Settings`.
 
 ## 10. Локальная Разработка
 
@@ -394,6 +416,22 @@ Production-запуск:
 docker compose up -d --build
 ```
 
+При старте production-контейнер выполняет `payload migrate`, поэтому на чистой PostgreSQL сначала создаются таблицы Payload, а затем запускается `node server.js`. После изменения коллекций Payload нужно создать новую миграцию:
+
+```bash
+npm run payload:migrate:create
+```
+
+Миграции лежат в `src/migrations` и должны попадать в Docker-образ.
+
+Payload uploads сохраняются в `/app/media`, который смонтирован как `media_storage` volume. Named volume может быть создан Docker-ом от `root`, поэтому `Dockerfile` использует entrypoint: создает `/app/var` и `/app/media`, делает `chown -R nextjs:nodejs`, затем запускает приложение через `su-exec` от пользователя `nextjs`. Если на старом образе загрузка падает с `EACCES: permission denied, open 'media/...'`, нужно пересобрать образ или разово поправить владельца `/app/media` внутри контейнера.
+
+Payload admin использует отдельный root layout в `src/app/(payload)/layout.tsx`. После изменения кастомных admin components или richtext features нужно регенерировать import map:
+
+```bash
+npm run payload:generate-importmap
+```
+
 Проверки после деплоя:
 
 ```bash
@@ -441,7 +479,7 @@ deploy/backup-postgres.sh
 1. Добавить тип в `getRoutePage` внутри `src/lib/content.ts`.
 2. Добавить metadata в `getMetaForRoute`.
 3. Добавить шаблон в `src/components/templates.tsx`.
-4. Подключить шаблон в `src/app/[[...slug]]/page.tsx`.
+4. Подключить шаблон в `src/app/(site)/[[...slug]]/page.tsx`.
 5. При необходимости добавить JSON-LD.
 
 ### Новое поле товара
@@ -472,13 +510,11 @@ deploy/backup-postgres.sh
 
 1. Написать seed/import script: `current-site.generated.ts` -> Payload collections.
 2. Создать категории, товары, бренды и документы в PostgreSQL.
-3. Добавить read-service, например `src/lib/cms-content.ts`.
-4. В `getRoutePage` и шаблонах заменить чтение `currentSitePages` на Payload Local API или REST.
-5. Оставить fallback на generated-файл для аварийного режима.
-6. Проверить, что `sitemap.ts` строится из CMS и содержит все старые URL.
-7. Добавить acceptance test: товар, созданный в `/admin`, появляется на публичной странице.
+3. Добавить acceptance test: товар, созданный в `/admin`, появляется на публичной странице.
+4. Улучшить каталог: поиск, фильтры, привязанные документы, бренды и понятные страницы пустых категорий.
+5. Проверить, что `sitemap.ts` строится из CMS и содержит все старые URL после импорта.
 
-До этого этапа админка полезна для подготовки структуры, пользователей, документов и заявок, но публичная витрина не обновляется автоматически от изменений CMS.
+`src/lib/cms-content.ts` уже читает Payload CMS и оставляет fallback на generated-файл для аварийного режима.
 
 ## 14. Траблшутинг
 
@@ -491,28 +527,25 @@ deploy/backup-postgres.sh
 - заполнен ли `PAYLOAD_SECRET`;
 - нет ли ошибок в терминале `npm run dev`.
 
-### Заявки не приходят на почту
+### Заявки не приходят в VK
 
 Проверьте:
 
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `LEADS_EMAIL_TO`
-- `LEADS_EMAIL_FROM`
+- `VK_GROUP_TOKEN` в `.env`;
+- `Vk Lead Enabled` в `Site Settings`;
+- `Vk Recipient Peer ID` в `Site Settings`;
+- Борис разрешил сообщения от VK-сообщества или доступен по указанному `peer_id`;
+- в заявке в CMS поля `deliveryStatus` и `deliveryError`.
 
-Даже если email не настроен, заявка должна сохраняться в `var/leads.jsonl`.
+Даже если VK недоступен, заявка должна сохраняться в Payload collection `leads`.
 
-### Заявки не приходят в Telegram
+### JivoChat не появился на сайте
 
 Проверьте:
 
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- бот добавлен в нужный чат;
-- бот имеет право отправлять сообщения.
+- `Jivo Enabled` в `Site Settings`;
+- `Jivo Widget ID` в `Site Settings`;
+- в поле указан только ID виджета, а не полный HTML/script-код.
 
 ### `next build` ругается на Payload/Postgres/Drizzle
 
@@ -535,4 +568,3 @@ serverExternalPackages: ['payload', '@payloadcms/db-postgres', '@payloadcms/driz
 - Для товаров указывать проверяемые параметры: материал, размер, производитель, документы, наличие/под заказ.
 - Для SEO не плодить пустые страницы без ассортимента или заявки.
 - Для новых документов хранить источник и дату актуальности.
-

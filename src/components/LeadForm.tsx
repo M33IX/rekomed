@@ -1,44 +1,60 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
-import { leadTypes, type LeadType } from '@/lib/content'
+
+export type ProductLeadContext = {
+  id?: string
+  title: string
+  sku?: string
+  path: string
+  category?: string
+}
 
 type LeadFormProps = {
-  type?: LeadType
-  productId?: string
+  product?: ProductLeadContext
   compact?: boolean
   title?: string
+  text?: string
+  successTitle?: string
+  successText?: string
 }
 
 type FormState = 'idle' | 'loading' | 'success' | 'error'
 
-export function LeadForm({ type = 'quote', productId, compact = false, title = 'Получить консультацию' }: LeadFormProps) {
+export function LeadForm({
+  product,
+  compact = false,
+  title = 'Связаться с RekoMed',
+  text = 'Оставьте контакты, и менеджер свяжется с вами по заявке.',
+  successTitle = 'Заявка отправлена',
+  successText = 'Менеджер свяжется с вами и уточнит детали запроса.'
+}: LeadFormProps) {
   const [state, setState] = useState<FormState>('idle')
   const [error, setError] = useState('')
-  const [selectedType, setSelectedType] = useState<LeadType>(type)
-
-  const pageUrl = useMemo(() => {
-    if (typeof window === 'undefined') return ''
-    return window.location.href
-  }, [])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const formElement = event.currentTarget
     setState('loading')
     setError('')
 
-    const form = new FormData(event.currentTarget)
+    const form = new FormData(formElement)
     const payload = {
-      type: selectedType,
+      type: 'callback',
       name: String(form.get('name') || ''),
       phone: String(form.get('phone') || ''),
       email: String(form.get('email') || ''),
       message: String(form.get('message') || ''),
       consent: form.get('consent') === 'on',
       companyWebsite: String(form.get('companyWebsite') || ''),
-      productId,
-      pageUrl,
+      pageUrl: typeof window !== 'undefined' ? window.location.href : '',
+      productId: product?.id || product?.sku || '',
+      productTitle: product?.title || '',
+      productSku: product?.sku || product?.id || '',
+      productPath: product?.path || '',
+      productCategory: product?.category || '',
       utm: Object.fromEntries(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''))
     }
 
@@ -53,7 +69,8 @@ export function LeadForm({ type = 'quote', productId, compact = false, title = '
         throw new Error(data.error || 'Не удалось отправить заявку')
       }
       setState('success')
-      event.currentTarget.reset()
+      window.dispatchEvent(new CustomEvent('rekomed:lead-submitted'))
+      formElement.reset()
     } catch (cause) {
       setState('error')
       setError(cause instanceof Error ? cause.message : 'Не удалось отправить заявку')
@@ -65,8 +82,8 @@ export function LeadForm({ type = 'quote', productId, compact = false, title = '
       <div className="form-success" role="status">
         <CheckCircle2 aria-hidden="true" />
         <div>
-          <strong>Заявка отправлена</strong>
-          <span>Менеджер свяжется с вами и уточнит детали запроса.</span>
+          <strong>{successTitle}</strong>
+          <span>{successText}</span>
         </div>
       </div>
     )
@@ -77,20 +94,19 @@ export function LeadForm({ type = 'quote', productId, compact = false, title = '
       <input name="companyWebsite" className="honeypot" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       <div className="form-heading">
         <span>{title}</span>
-        <p>Ответим по наличию, документам и условиям поставки.</p>
+        <p>{text}</p>
       </div>
-      <div className="segmented" role="group" aria-label="Тип заявки">
-        {leadTypes.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            className={selectedType === item.value ? 'active' : ''}
-            onClick={() => setSelectedType(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {product && (
+        <div className="selected-product" aria-label="Выбранный товар">
+          <span>Выбранный товар</span>
+          <strong>{product.title}</strong>
+          {(product.sku || product.category) && (
+            <small>
+              {[product.sku ? `Артикул ${product.sku}` : '', product.category].filter(Boolean).join(' · ')}
+            </small>
+          )}
+        </div>
+      )}
       <label>
         Имя
         <input name="name" required minLength={2} autoComplete="name" placeholder="Как к вам обращаться" />
@@ -101,17 +117,26 @@ export function LeadForm({ type = 'quote', productId, compact = false, title = '
       </label>
       <label>
         Email
-        <input name="email" type="email" autoComplete="email" placeholder="Для КП или документов" />
+        <input name="email" type="email" autoComplete="email" placeholder="Если удобно ответить на почту" />
       </label>
       {!compact && (
         <label>
           Комментарий
-          <textarea name="message" rows={4} placeholder="Направление, артикул, спецификация или вопрос" />
+          <textarea name="message" rows={4} placeholder="Напишите вопрос, количество или дополнительные детали" />
         </label>
       )}
       <label className="checkbox-row">
         <input name="consent" type="checkbox" required />
-        <span>Согласен(а) на обработку персональных данных</span>
+        <span>
+          Нажимая кнопку, я даю{' '}
+          <Link href="/consent/" target="_blank">
+            согласие на обработку персональных данных
+          </Link>{' '}
+          и подтверждаю ознакомление с{' '}
+          <Link href="/privacy/" target="_blank">
+            Политикой обработки персональных данных
+          </Link>
+        </span>
       </label>
       {state === 'error' && <p className="form-error">{error}</p>}
       <button className="primary-action" type="submit" disabled={state === 'loading'}>

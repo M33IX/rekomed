@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: rekomed
       POSTGRES_USER: rekomed
-      POSTGRES_PASSWORD: change-me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://postgres@postgres:5432/rekomed
+      DATABASE_URL: postgres://rekomed:${POSTGRES_PASSWORD:-change-me}@postgres:5432/rekomed
       NEXT_PUBLIC_SITE_URL: https://reko-med.ru
     depends_on:
       postgres:
@@ -29,7 +29,9 @@ services:
       - "3000:3000"
     volumes:
       - lead_storage:/app/var
+      - media_storage:/app/media
 
 volumes:
   postgres_data:
   lead_storage:
+  media_storage:

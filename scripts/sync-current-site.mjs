@@ -3,6 +3,17 @@ import { request } from 'node:https'
 
 const SITE = 'https://reko-med.ru'
 const OUT = new URL('../src/data/current-site.generated.ts', import.meta.url)
+const CATALOG_SEED_PATHS = [
+  '/catalog/',
+  '/catalog/neyrokhirurgiya/',
+  '/catalog/travmatologiya/',
+  '/catalog/ortopediya/',
+  '/catalog/khirurgiya/',
+  '/catalog/oborudovanie/',
+  '/catalog/otolaringologiya/',
+  '/catalog/reabilitatsiya/',
+  '/catalog/stomatologiya/'
+]
 
 const fetchText = (url, limit = 1_400_000) =>
   new Promise((resolve, reject) => {
@@ -61,17 +72,107 @@ const absolutize = (url) => {
   return new URL(url, SITE).toString()
 }
 
+const isSameSite = (url) => {
+  try {
+    return new URL(url).origin === SITE
+  } catch {
+    return false
+  }
+}
+
+const normalizeUrl = (url) => {
+  const parsed = new URL(url, SITE)
+  parsed.hash = ''
+  parsed.search = ''
+  return parsed.toString()
+}
+
+const getPath = (url) => new URL(url).pathname
+
+const isCatalogCategoryPath = (path) => /^\/catalog\/[^/]+\/$/.test(path) || path === '/catalog/'
+const isCatalogProductPath = (path) => /^\/catalog\/[^/]+\/\d+\/$/.test(path)
+
+const isCatalogUtilityPath = (path) =>
+  /\/filter\//.test(path) ||
+  /\/compare\//.test(path) ||
+  /\/personal\//.test(path) ||
+  /\.(?:jpg|jpeg|png|gif|svg|webp|pdf|xml)$/i.test(path)
+
+const extractCatalogLinks = (html) =>
+  matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi, html)
+    .map((href) => normalizeUrl(href))
+    .filter(isSameSite)
+    .filter((url) => {
+      const path = getPath(url)
+      return path.startsWith('/catalog/') && !isCatalogUtilityPath(path)
+    })
+
+const discoverCatalogUrls = async () => {
+  const discovered = new Set()
+  const queued = CATALOG_SEED_PATHS.map((path) => `${SITE}${path}`)
+  const visited = new Set()
+
+  while (queued.length > 0) {
+    const url = queued.shift()
+    if (!url || visited.has(url)) continue
+    visited.add(url)
+
+    let html = ''
+    try {
+      html = await fetchText(url)
+    } catch (error) {
+      console.warn(`\nSkipped catalog discovery ${url}: ${error.message}`)
+      continue
+    }
+
+    discovered.add(url)
+
+    for (const link of extractCatalogLinks(html)) {
+      const path = getPath(link)
+
+      if (isCatalogProductPath(path)) {
+        discovered.add(link)
+        continue
+      }
+
+      if (isCatalogCategoryPath(path)) {
+        discovered.add(link)
+        if (!visited.has(link) && !queued.includes(link)) queued.push(link)
+      }
+    }
+  }
+
+  return discovered
+}
+
 const selectImage = (html) => {
   const images = [...html.matchAll(/<img\b[^>]*>/gi)]
     .map(([tag]) => {
-      const src = /(?:src|data-src)=["']([^"']+)["']/i.exec(tag)?.[1] ?? ''
+      const src =
+        /data-original=["']([^"']+)["']/i.exec(tag)?.[1] ??
+        /data-src=["']([^"']+)["']/i.exec(tag)?.[1] ??
+        /src=["']([^"']+)["']/i.exec(tag)?.[1] ??
+        ''
       const alt = /alt=["']([^"']*)["']/i.exec(tag)?.[1] ?? ''
       return { src: absolutize(src), alt: stripTags(alt) }
     })
     .filter((image) => {
       const haystack = `${image.src} ${image.alt}`
-      return image.src.includes('/upload/') && !/logo|reko-med|icon|sprite|blank/i.test(haystack)
+      return image.src.includes('/upload/') && !/logo|logotype|sprite|blank/i.test(haystack)
     })
+
+  images.sort((a, b) => {
+    const score = (image) => {
+      let result = 0
+      if (!image.src.includes('/resize_cache/')) result += 1000
+      const size = /\/(\d+)_(\d+)(?:_\d+)?\//.exec(image.src)
+      if (size) result += Number(size[1]) + Number(size[2])
+      if (/\/iblock\//.test(image.src)) result += 100
+      return result
+    }
+
+    return score(b) - score(a)
+  })
 
   return images[0] ?? { src: '', alt: '' }
 }
@@ -149,6 +250,10 @@ const run = async () => {
       if (!loc.endsWith('.xml')) urls.add(loc)
     }
   }
+
+  const discoveredCatalogUrls = await discoverCatalogUrls()
+  for (const url of discoveredCatalogUrls) urls.add(url)
+  console.log(`Discovered ${discoveredCatalogUrls.size} catalog URLs from public category pages`)
 
   const pages = []
   const skipped = []
