@@ -162,6 +162,10 @@ export function HomePage({ content = generatedPublicContent }: { content?: Publi
           </div>
         </div>
         <div className="hero-panel" aria-label="Чем помогает RekoMed">
+          <div className="hero-panel-head">
+            <span>Заявка на КП</span>
+            <strong>Подбор, документы и условия поставки в одном запросе</strong>
+          </div>
           <div className="panel-row">
             <ClipboardCheck aria-hidden="true" />
             <span>Проверяем позицию, артикул и наличие</span>
