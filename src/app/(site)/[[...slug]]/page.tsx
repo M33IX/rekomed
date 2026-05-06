@@ -73,7 +73,7 @@ export default async function Page({ params }: PageProps) {
   else if (route.type === 'company' && route.path === '/company/') content = <CompanyPage />
   else if (route.type === 'documents') content = <DocumentsPage />
   else if (route.type === 'legal') content = <LegalPage page={route.legalPage} settings={siteSettings} />
-  else content = <InfoPage page={route.page} />
+  else content = <InfoPage page={route.page} settings={siteSettings} />
 
   return (
     <>

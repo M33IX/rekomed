@@ -407,13 +407,23 @@ npm run dev
 
 - `Dockerfile`
 - `docker-compose.yml`
+- `docker-compose.build.yml`
 - `deploy/nginx.conf`
+- `deploy/production-checklist.md`
 - `deploy/backup-postgres.sh`
 
-Production-запуск:
+Production-запуск использует готовый образ из `APP_IMAGE` и не требует Dockerfile на сервере:
 
 ```bash
-docker compose up -d --build
+docker compose pull app
+docker compose up -d
+docker compose logs -f app
+```
+
+Если нужно собрать образ прямо на сервере или локально:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 При старте production-контейнер выполняет `payload migrate`, поэтому на чистой PostgreSQL сначала создаются таблицы Payload, а затем запускается `node server.js`. После изменения коллекций Payload нужно создать новую миграцию:
@@ -446,7 +456,9 @@ nginx:
 - пример лежит в `deploy/nginx.conf`;
 - домен `www.reko-med.ru` редиректится на `https://reko-med.ru`;
 - приложение проксируется на `127.0.0.1:3000`;
-- SSL ожидается через Let's Encrypt.
+- SSL ожидается через Let's Encrypt;
+- в `docker-compose.yml` приложение публикуется только на `127.0.0.1:${APP_PORT:-3000}:3000`, чтобы его нельзя было открыть извне в обход nginx;
+- PostgreSQL не имеет `ports` и доступен только внутри Docker-сети для `app`.
 
 Бэкапы PostgreSQL:
 

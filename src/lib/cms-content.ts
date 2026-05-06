@@ -12,6 +12,11 @@ export type PublicCatalogPage = CurrentSitePage & {
   updatedAt?: string
   parentSection?: string | null
   sortOrder?: number | null
+  categoryTitle?: string
+  categoryPath?: string
+  brandTitle?: string
+  brandPath?: string
+  documentsCount?: number
 }
 
 export type PublicContent = {
@@ -35,13 +40,37 @@ export type PublicRoute =
   | { type: 'company'; path: string; page: PublicCatalogPage }
   | { type: PublicCatalogPage['kind']; path: string; page: PublicCatalogPage }
 
-const generatedPages = currentSitePages.map((page) => ({
-  ...page,
-  parentSection: page.kind === 'category' ? getFallbackParentSection(page.section) : null,
-  sortOrder: page.kind === 'category' ? getFallbackSortOrder(page.section) : null,
-  source: 'generated' as const,
-  updatedAt: currentSiteGeneratedAt
-}))
+const normalizeGeneratedText = (value: string) => value.toLowerCase().replaceAll('ё', 'е').trim()
+const generatedBrandSourcePages = currentSitePages.filter((page) => page.kind === 'brand')
+const generatedCategoryBySection = new Map(
+  currentSitePages.filter((page) => page.kind === 'category').map((page) => [page.section, page])
+)
+
+const inferGeneratedBrand = (page: CurrentSitePage) => {
+  if (page.kind !== 'product') return {}
+  const haystack = normalizeGeneratedText(`${page.title} ${page.h1} ${page.imageAlt}`)
+  const brand = generatedBrandSourcePages.find((item) => {
+    const title = normalizeGeneratedText(item.h1 || item.title)
+    return title && haystack.includes(title)
+  })
+
+  return brand ? { brandTitle: brand.h1, brandPath: brand.path } : {}
+}
+
+const generatedPages = currentSitePages.map((page) => {
+  const category = page.kind === 'product' ? generatedCategoryBySection.get(page.section) : undefined
+
+  return {
+    ...page,
+    parentSection: page.kind === 'category' ? getFallbackParentSection(page.section) : null,
+    sortOrder: page.kind === 'category' ? getFallbackSortOrder(page.section) : null,
+    categoryTitle: category?.h1 || '',
+    categoryPath: category?.path || '',
+    ...inferGeneratedBrand(page),
+    source: 'generated' as const,
+    updatedAt: currentSiteGeneratedAt
+  }
+})
 
 const legacyPageByPath = new Map(currentSitePages.map((page) => [page.path, page]))
 
@@ -95,6 +124,22 @@ const companyPage: PublicCatalogPage = {
   updatedAt: currentSiteGeneratedAt
 }
 
+const contactsPage: PublicCatalogPage = {
+  url: `${siteUrl}/contacts/`,
+  path: '/contacts/',
+  kind: 'contacts',
+  title: 'Контакты RekoMed',
+  h1: 'Контакты',
+  description: 'Контакты RekoMed для заявок на КП, документы, цену, наличие и подбор медицинских изделий.',
+  section: 'contacts',
+  id: 'contacts',
+  image: '',
+  imageAlt: '',
+  attributes: {},
+  source: 'cms',
+  updatedAt: currentSiteGeneratedAt
+}
+
 const mapCategory = (category: Category): PublicCatalogPage => {
   const path = categoryPath(category)
   const legacy = legacyPageByPath.get(path)
@@ -123,6 +168,7 @@ const mapProduct = (product: Product): PublicCatalogPage => {
   const path = productPath(product)
   const legacy = legacyPageByPath.get(path)
   const category = getRelation<Category>(product.category)
+  const brand = getRelation<Brand>(product.brand)
   const image = mediaUrl(product.image) || legacy?.image || ''
   const attrs = Object.fromEntries((product.attributes || []).map((attr) => [attr.label, attr.value]))
 
@@ -138,6 +184,11 @@ const mapProduct = (product: Product): PublicCatalogPage => {
     image,
     imageAlt: mediaAlt(product.image, product.title, legacy?.imageAlt),
     attributes: attrs,
+    categoryTitle: category?.title || '',
+    categoryPath: category ? categoryPath(category) : '',
+    brandTitle: brand?.title || '',
+    brandPath: brand ? brandPath(brand) : '',
+    documentsCount: product.documents?.length || 0,
     source: 'cms',
     updatedAt: product.updatedAt
   }
@@ -166,7 +217,8 @@ const mapBrand = (brand: Brand): PublicCatalogPage => {
 }
 
 const buildContent = (cmsPages: PublicCatalogPage[] = []): PublicContent => {
-  const basePages = cmsPages.some((page) => page.path === companyPage.path) ? cmsPages : [companyPage, ...cmsPages]
+  const withCompany = cmsPages.some((page) => page.path === companyPage.path) ? cmsPages : [companyPage, ...cmsPages]
+  const basePages = withCompany.some((page) => page.path === contactsPage.path) ? withCompany : [contactsPage, ...withCompany]
   const cmsPaths = new Set(basePages.map((page) => page.path))
   const pages = [...basePages, ...generatedPages.filter((page) => !cmsPaths.has(page.path))]
   const productPages = pages.filter((page) => page.kind === 'product')
@@ -314,8 +366,12 @@ export const getRoutePage = (segments: string[] | undefined, content: PublicCont
     return { type: 'legal', path: legalPage.path, legalPage }
   }
 
-  if (path === '/company/') {
+  if (path === '/company/' || path === '/about/') {
     return { type: 'company', path, page: content.pathToPage.get(path) || companyPage }
+  }
+
+  if (path === '/contacts/') {
+    return { type: 'contacts', path, page: content.pathToPage.get(path) || contactsPage }
   }
 
   const page = content.pathToPage.get(path)

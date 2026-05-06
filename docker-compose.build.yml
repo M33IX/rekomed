@@ -1,0 +1,4 @@
+services:
+  app:
+    build: .
+    image: ${APP_IMAGE:-rekomed-app:local}

@@ -1,21 +1,39 @@
 import Link from 'next/link'
 import {
+  Activity,
   ArrowRight,
+  BadgeCheck,
+  Bone,
   Building2,
   CheckCircle2,
+  CircleHelp,
   ClipboardCheck,
+  Clock,
+  FileCheck2,
   FileText,
   Handshake,
+  HeartPulse,
+  Layers3,
+  Mail,
+  MapPin,
+  Microscope,
   PackageCheck,
+  Phone,
   Search,
   ShieldCheck,
-  Truck
+  Stethoscope,
+  Truck,
+  type LucideIcon
 } from 'lucide-react'
-import {
-  company,
-  directions,
-  type Direction
-} from '@/lib/content'
+import { CommandSearch } from '@/components/home/CommandSearch'
+import { FeaturedManufacturerSection } from '@/components/home/FeaturedManufacturerSection'
+import { CatalogExplorer } from '@/components/CatalogExplorer'
+import { LeadForm } from '@/components/LeadForm'
+import { RevealSection } from '@/components/Motion'
+import { ProductCard, fallbackProductImage } from '@/components/catalog/ProductCard'
+import { ManufacturerListing } from '@/components/catalog/ManufacturerListing'
+import { MobileProductCTA } from '@/components/product/MobileProductCTA'
+import { company, directions, type Direction } from '@/lib/content'
 import {
   generatedPublicContent,
   getCategoryBySection,
@@ -31,50 +49,155 @@ import {
   getTopCatalogNodes,
   isWorkingCategory
 } from '@/lib/catalog-hierarchy'
-import { CatalogExplorer } from '@/components/CatalogExplorer'
-import { LeadForm } from '@/components/LeadForm'
 import type { LegalPageDefinition } from '@/lib/legal-pages'
 import type { PublicSiteSettings } from '@/lib/site-settings'
 
-const fallbackImage =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="640" height="420" fill="%23eef6f4"/><path d="M96 316h448M126 106h388M126 158h298M126 210h352" stroke="%231a6a7a" stroke-width="18" stroke-linecap="round"/><rect x="96" y="72" width="448" height="276" rx="16" fill="none" stroke="%230f4f5f" stroke-width="12"/></svg>'
+type BreadcrumbItem = {
+  href: string
+  label: string
+}
 
-function ProductVisual({ product, className = '' }: { product: PublicCatalogPage; className?: string }) {
+type DirectionCard = {
+  section: string
+  href: string
+  title: string
+  text: string
+  icon: LucideIcon
+}
+
+const directionCards: DirectionCard[] = [
+  { section: 'neyrokhirurgiya', href: '/nejrohirurgiya/', title: 'Нейрохирургия', text: 'Кейджи, фиксация, пластины', icon: Activity },
+  { section: 'travmatologiya', href: '/osteosintez/', title: 'Травматология', text: 'Пластины, винты, штифты', icon: Bone },
+  { section: 'ortopediya', href: '/endoprotezirovanie/', title: 'Ортопедия', text: 'Компоненты суставов', icon: HeartPulse },
+  { section: 'khirurgiya', href: '/catalog/khirurgiya/', title: 'Хирургия', text: 'Материалы и инструменты', icon: Stethoscope },
+  { section: 'oborudovanie', href: '/medicinskoe-oborudovanie/', title: 'Оборудование', text: 'Подбор под кабинет', icon: Microscope },
+  { section: 'otolaringologiya', href: '/catalog/otolaringologiya/', title: 'Оториноларингология', text: 'ЛОР-оборудование', icon: Layers3 },
+  { section: 'stomatologiya', href: '/catalog/stomatologiya/', title: 'Стоматология', text: 'Шовный материал', icon: FileCheck2 },
+  { section: 'reabilitatsiya', href: '/catalog/reabilitatsiya/', title: 'Реабилитация', text: 'Позиции по запросу', icon: PackageCheck }
+]
+
+const documentItems = [
+  'Регистрационные удостоверения',
+  'Сертификаты соответствия',
+  'Декларации',
+  'Инструкции',
+  'Паспорта изделий',
+  'Политики и согласия'
+]
+
+const processItems = [
+  {
+    title: 'Уточняем задачу',
+    text: 'Вы указываете изделие, артикул или область применения.'
+  },
+  {
+    title: 'Подбираем решение',
+    text: 'Проверяем позицию, параметры, аналоги и наличие.'
+  },
+  {
+    title: 'Готовим документы',
+    text: 'Формируем КП, спецификации и доступный комплект документов.'
+  },
+  {
+    title: 'Сопровождаем поставку',
+    text: 'Согласуем условия, сроки и закрывающие документы.'
+  }
+]
+
+const cleanText = (value: string | undefined, fallback: string) => {
+  const text = (value || '')
+    .replaceAll('&quot;', '"')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!text || text === 'Интернет-магазин') return fallback
+  return text.length > 190 ? `${text.slice(0, 187)}...` : text
+}
+
+const formatCategoryCount = (count: number) => {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return `${count} категория`
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return `${count} категории`
+  return `${count} категорий`
+}
+
+const productSummary = (product: PublicCatalogPage) => {
+  const attrs = Object.entries(product.attributes || {}).slice(0, 2)
+  if (attrs.length) {
+    return `Цена, наличие и документы уточняются по заявке. Ключевые параметры: ${attrs
+      .map(([label, value]) => `${label.toLowerCase()} - ${value}`)
+      .join(', ')}.`
+  }
+  return 'Цена, наличие и документы уточняются по заявке. Менеджер поможет проверить параметры и подготовить КП.'
+}
+
+const getDirectionCount = (content: PublicContent, section: string) => {
+  const category = content.categoryPages.find((item) => item.section === section)
+  if (!category) return content.productPages.filter((item) => item.section === section).length
+  return getCategoryNode(category, content.categoryPages, content.productPages).descendantProductCount
+}
+
+const uniqueProducts = (products: PublicCatalogPage[]) => {
+  const seen = new Set<string>()
+  return products.filter((product) => {
+    if (seen.has(product.path)) return false
+    seen.add(product.path)
+    return true
+  })
+}
+
+function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
-    <div className={`product-visual ${className}`}>
-      <img src={product.image || fallbackImage} alt={product.imageAlt || product.h1} loading="lazy" />
+    <nav className="breadcrumbs" aria-label="Хлебные крошки">
+      {items.map((item, index) => (
+        <span key={`${item.href}-${item.label}`}>
+          {index > 0 && <span aria-hidden="true">/</span>}
+          <Link href={item.href}>{item.label}</Link>
+        </span>
+      ))}
+    </nav>
+  )
+}
+
+function SectionHead({
+  kicker,
+  title,
+  text,
+  action
+}: {
+  kicker: string
+  title: string
+  text?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className={action ? 'section-head split' : 'section-head'}>
+      <div>
+        <span className="section-kicker">{kicker}</span>
+        <h2>{title}</h2>
+        {text && <p>{text}</p>}
+      </div>
+      {action}
     </div>
   )
 }
 
-export function ProductCard({ product }: { product: PublicCatalogPage }) {
-  const attrs = Object.entries(product.attributes).slice(0, 3)
+function DirectionTile({ item, count }: { item: DirectionCard; count: number }) {
+  const Icon = item.icon
 
   return (
-    <article className="product-card">
-      <ProductVisual product={product} />
-      <div>
-        <span className="muted-label">Артикул {product.id || 'по запросу'}</span>
-        <h3>
-          <Link href={product.path}>{product.h1}</Link>
-        </h3>
-        <p>{product.description || 'Медицинское изделие RekoMed. Уточните наличие, документы и цену у менеджера.'}</p>
-      </div>
-      {attrs.length > 0 && (
-        <dl className="mini-specs">
-          {attrs.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      <Link className="text-action" href={`${product.path}#product-lead`}>
-        Запросить цену
-        <ArrowRight size={16} aria-hidden="true" />
-      </Link>
-    </article>
+    <Link className="direction-tile" href={item.href}>
+      <span className="icon-pill">
+        <Icon size={22} aria-hidden="true" />
+      </span>
+      <span className="tile-content">
+        <strong>{item.title}</strong>
+        <small>{count ? formatCatalogCount(count).replace('категорий', 'позиций').replace('категория', 'позиция').replace('категории', 'позиции') : item.text}</small>
+      </span>
+      <ArrowRight size={18} aria-hidden="true" />
+    </Link>
   )
 }
 
@@ -90,188 +213,158 @@ function CategoryTile({ category, content }: { category: PublicCatalogPage; cont
   )
 }
 
-function Breadcrumbs({ items }: { items: { href: string; label: string }[] }) {
+function ProductVisual({ product, className = '' }: { product: PublicCatalogPage; className?: string }) {
   return (
-    <nav className="breadcrumbs" aria-label="Хлебные крошки">
-      {items.map((item, index) => (
-        <span key={item.href}>
-          {index > 0 && <span aria-hidden="true">/</span>}
-          <Link href={item.href}>{item.label}</Link>
-        </span>
-      ))}
-    </nav>
+    <div className={`product-visual ${className}`}>
+      <img src={product.image || fallbackProductImage} alt={product.imageAlt || product.h1} loading="lazy" />
+    </div>
   )
 }
 
 function LeadSection({
-  title = 'Получить консультацию или КП',
-  text = 'Оставьте контакты: менеджер уточнит задачу, подберет позицию, проверит документы и подготовит коммерческое предложение.',
-  kicker = 'Заявка менеджеру'
+  title = 'Свяжитесь с нами',
+  text = 'Готовы помочь с подбором изделий и подготовкой КП под вашу задачу.',
+  kicker = 'Заявка менеджеру',
+  type = 'quote',
+  source = 'contacts'
 }: {
   title?: string
   text?: string
   kicker?: string
+  type?: Parameters<typeof LeadForm>[0]['type']
+  source?: Parameters<typeof LeadForm>[0]['source']
 }) {
   return (
-    <section className="section lead-section" id="lead">
+    <RevealSection className="section lead-section" id="lead">
       <div>
         <span className="section-kicker">{kicker}</span>
         <h2>{title}</h2>
         <p>{text}</p>
         <div className="contact-lines">
-          <a href={company.phoneHref}>{company.phone}</a>
-          <a href={company.emailHref}>{company.email}</a>
-          <span>{company.hours}</span>
+          <a href={company.phoneHref}>
+            <Phone size={16} aria-hidden="true" />
+            {company.phone}
+          </a>
+          <a href={company.emailHref}>
+            <Mail size={16} aria-hidden="true" />
+            {company.email}
+          </a>
+          <span>
+            <Clock size={16} aria-hidden="true" />
+            {company.hours}
+          </span>
         </div>
       </div>
-      <LeadForm title="Связаться с RekoMed" text="Опишите задачу или укажите изделие, которое нужно подобрать." />
-    </section>
+      <LeadForm
+        title="Запросить подбор и КП"
+        text="Опишите изделие, артикул, количество или задачу. Менеджер уточнит детали."
+        type={type}
+        source={source}
+        submitLabel={type === 'documents' ? 'Запросить документы' : 'Отправить заявку'}
+      />
+    </RevealSection>
   )
 }
 
 export function HomePage({ content = generatedPublicContent }: { content?: PublicContent }) {
-  const cmsProducts = content.productPages.filter((product) => product.source === 'cms')
-  const featuredProducts = [...cmsProducts, ...content.productPages.filter((product) => product.source !== 'cms')].slice(0, 6)
-  const primaryCategories = content.categoryPages
-    .filter((category) => ['travmatologiya', 'plastiny', 'vinty', 'shtift', 'ortopediya', 'khirurgiya'].includes(category.section))
-    .slice(0, 8)
+  const preferredArticles = ['1026', '1027', '1028', '1058']
+  const preferred = preferredArticles
+    .map((article) => content.productPages.find((product) => product.id === article))
+    .filter((product): product is PublicCatalogPage => Boolean(product))
+  const featuredProducts = uniqueProducts([
+    ...preferred,
+    ...content.productPages.filter((product) => product.source === 'cms'),
+    ...content.productPages
+  ]).slice(0, 6)
+  const hasManufacturerProducts =
+    content.brandPages.filter((brand) => content.productPages.some((product) => product.brandTitle === brand.h1)).length > 1
 
   return (
     <>
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="section-kicker">Поставка медицинских изделий</span>
-          <h1>Медицинские изделия, документы и КП для клиник без лишних согласований</h1>
-          <p>
-            Помогаем врачам, клиникам и закупочным отделам быстро уточнить наличие, подобрать изделие под спецификацию
-            и получить комплект документов для закупки.
-          </p>
-          <div className="hero-actions">
-            <Link className="primary-action" href="#lead">
-              Получить КП
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <Link className="outline-action" href="/catalog/">
-              Смотреть каталог
-            </Link>
+      <RevealSection className="hero-dashboard" variant="fadeIn">
+        <div className="hero-grid">
+          <div className="hero-copy">
+            <span className="section-kicker">Поставка медицинских изделий для клиник</span>
+            <h1>Медицинские изделия, документы и КП для клиник</h1>
+            <p>
+              Помогаем подобрать позицию, уточнить наличие и подготовить документы для закупки.
+            </p>
+            <div className="hero-actions">
+              <Link className="primary-action" href="#lead">
+                Запросить КП
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link className="outline-action" href="/catalog/">
+                Смотреть каталог
+              </Link>
+            </div>
+            <CommandSearch categories={content.categoryPages} products={content.productPages} />
+            <div className="trust-strip" aria-label="Ключевые показатели">
+              <span>{content.productPages.length}+ товаров</span>
+              <span>{formatCategoryCount(content.categoryPages.length)}</span>
+              <span>Документы по запросу</span>
+              <span>Работаем с юрлицами</span>
+            </div>
           </div>
-          <div className="trust-strip" aria-label="Ключевые показатели">
-            <span>{content.productPages.length} товаров в каталоге</span>
-            <span>{content.categoryPages.length} категорий</span>
-            <span>КП и документы под запрос</span>
-          </div>
-        </div>
-        <div className="hero-panel" aria-label="Чем помогает RekoMed">
-          <div className="hero-panel-head">
-            <span>Заявка на КП</span>
-            <strong>Подбор, документы и условия поставки в одном запросе</strong>
-          </div>
-          <div className="panel-row">
-            <ClipboardCheck aria-hidden="true" />
-            <span>Проверяем позицию, артикул и наличие</span>
-          </div>
-          <div className="panel-row">
-            <FileText aria-hidden="true" />
-            <span>Готовим РУ, сертификаты и инструкции</span>
-          </div>
-          <div className="panel-row">
-            <Truck aria-hidden="true" />
-            <span>Работаем с юрлицами и закупочными отделами</span>
-          </div>
-          <div className="hero-note">
-            <strong>Запрос по конкретному изделию</strong>
-            <p>Откройте карточку товара и оставьте контакты. Менеджер увидит выбранную позицию и быстрее уточнит цену, наличие и документы.</p>
+          <div className="dashboard-request-card">
+            <LeadForm
+              title="Запросить подбор и КП"
+              text="Оставьте заявку - менеджер уточнит задачу, подберет позиции и подготовит КП."
+              type="quote"
+              source="home"
+              submitLabel="Отправить заявку"
+            />
           </div>
         </div>
-      </section>
+      </RevealSection>
 
-      <section className="section audience-section">
-        <div className="section-head">
-          <span className="section-kicker">Кому подходит</span>
-          <h2>Для тех, кому важно быстро закрыть заявку на поставку</h2>
-          <p>Помогаем уточнить позицию, собрать документы и получить понятные условия для закупки.</p>
-        </div>
-        <div className="trust-grid">
-          <div className="trust-card">
-            <Building2 aria-hidden="true" />
-            <h3>Клиникам и отделениям</h3>
-            <p>Подбор изделий, расходных материалов и оборудования под конкретную медицинскую задачу.</p>
-          </div>
-          <div className="trust-card">
-            <ClipboardCheck aria-hidden="true" />
-            <h3>Закупочным отделам</h3>
-            <p>КП, спецификации, документы и понятная коммуникация по срокам поставки.</p>
-          </div>
-          <div className="trust-card">
-            <FileText aria-hidden="true" />
-            <h3>Врачам и специалистам</h3>
-            <p>Уточнение характеристик, типоразмеров, аналогов и регистрационных документов.</p>
-          </div>
-          <div className="trust-card">
-            <Truck aria-hidden="true" />
-            <h3>Юридическим лицам</h3>
-            <p>Работа по счетам, закрывающим документам и поставкам под заявку организации.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="section-head">
-          <span className="section-kicker">Направления</span>
-          <h2>Направления, с которых удобно начать подбор</h2>
-          <p>Выберите профильный раздел, если уже знаете задачу, область применения или тип изделия.</p>
-        </div>
+      <RevealSection className="section">
+        <SectionHead
+          kicker="Направления"
+          title="Ключевые направления"
+          text="Выберите профильный раздел, если уже знаете область применения или тип изделия."
+        />
         <div className="direction-grid">
-          {directions.slice(0, 6).map((direction) => (
-            <Link className="direction-card" href={`/${direction.slug}/`} key={direction.slug}>
-              <span>{direction.eyebrow}</span>
-              <h3>{direction.title}</h3>
-              <p>{direction.summary}</p>
-              <strong>
-                Перейти
-                <ArrowRight size={16} aria-hidden="true" />
-              </strong>
-            </Link>
+          {directionCards.map((item) => (
+            <DirectionTile key={item.section} item={item} count={getDirectionCount(content, item.section)} />
           ))}
         </div>
-      </section>
+      </RevealSection>
 
-      <section className="section band">
-        <div className="section-head">
-          <span className="section-kicker">Каталог</span>
-          <h2>Ключевые категории</h2>
-          <p>Основные группы изделий собраны по направлениям, чтобы быстрее перейти к нужной позиции.</p>
-        </div>
-        <div className="category-grid">
-          {primaryCategories.map((category) => (
-            <CategoryTile key={category.path} category={category} content={content} />
-          ))}
-        </div>
-      </section>
+      <ProcessSection />
 
       {featuredProducts.length > 0 && (
-      <section className="section">
-        <div className="section-head split">
-          <div>
-            <span className="section-kicker">Каталог</span>
-            <h2>Позиции, по которым можно сразу отправить заявку</h2>
-            <p>Откройте карточку изделия или отправьте запрос менеджеру, если нужна цена, наличие или документы.</p>
+        <RevealSection className="section">
+          <SectionHead
+            kicker="Каталог"
+            title="Популярные изделия"
+            text="Карточки показывают только главное: артикул, категорию, 1-2 параметра и заявку на цену."
+            action={
+              <Link className="outline-action" href="/catalog/">
+                Все товары
+              </Link>
+            }
+          />
+          <div className="product-grid">
+            {featuredProducts.map((product) => (
+              <ProductCard
+                key={product.path}
+                product={product}
+                categoryTitle={getCategoryBySection(content, product.section).h1}
+              />
+            ))}
           </div>
-          <Link className="outline-action" href="/catalog/">
-            Весь каталог
-          </Link>
-        </div>
-        <div className="product-grid">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.path} product={product} />
-          ))}
-        </div>
-      </section>
+        </RevealSection>
       )}
 
       <TrustSection />
-      <ProcessSection />
-      <LeadSection />
+      {hasManufacturerProducts && (
+        <RevealSection className="section">
+          <FeaturedManufacturerSection brands={content.brandPages} products={content.productPages} />
+        </RevealSection>
+      )}
+      <DocumentsBand />
+      <LeadSection source="home" />
     </>
   )
 }
@@ -285,7 +378,8 @@ export function DirectionPage({ direction, content = generatedPublicContent }: {
 
   return (
     <>
-      <section className="page-hero compact-hero">
+      <RevealSection className="page-hero compact-hero">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: `/${direction.slug}/`, label: direction.eyebrow }]} />
         <span className="section-kicker">{direction.eyebrow}</span>
         <h1>{direction.title}</h1>
         <p>{direction.summary}</p>
@@ -294,63 +388,65 @@ export function DirectionPage({ direction, content = generatedPublicContent }: {
             <span key={item}>{item}</span>
           ))}
         </div>
-        <Link className="primary-action" href="#lead">
-          Оставить заявку
-          <ArrowRight size={18} aria-hidden="true" />
-        </Link>
-      </section>
+        <div className="hero-actions">
+          <Link className="primary-action" href="#lead">
+            Оставить заявку
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+          <Link className="outline-action" href="/catalog/">
+            Перейти в каталог
+          </Link>
+        </div>
+      </RevealSection>
 
       {categories.length > 0 && (
-        <section className="section">
-          <div className="section-head">
-            <span className="section-kicker">Подкатегории</span>
-            <h2>Быстрый переход к нужному типу изделий</h2>
-          </div>
-          <div className="category-grid">
+        <RevealSection className="section">
+          <SectionHead kicker="Подкатегории" title="Быстрый переход к нужному типу изделий" />
+          <div className="category-grid compact">
             {categories.map((category) => (
               <CategoryTile key={category.path} category={category} content={content} />
             ))}
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {products.length > 0 && (
-        <section className="section band">
-          <div className="section-head split">
-            <div>
-              <span className="section-kicker">Позиции</span>
-              <h2>Примеры товаров по направлению</h2>
-            </div>
-            <Link className="outline-action" href="/catalog/">
-              Открыть каталог
-            </Link>
-          </div>
+        <RevealSection className="section band">
+          <SectionHead
+            kicker="Позиции"
+            title="Примеры товаров по направлению"
+            action={<Link className="outline-action" href="/catalog/">Открыть каталог</Link>}
+          />
           <div className="product-grid">
             {products.map((product) => (
-              <ProductCard key={product.path} product={product} />
+              <ProductCard key={product.path} product={product} categoryTitle={getCategoryBySection(content, product.section).h1} />
             ))}
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {!categories.length && !products.length && (
-        <section className="section">
+        <RevealSection className="section">
           <div className="empty-category-panel">
             <div>
               <span className="section-kicker">Запрос по направлению</span>
-              <h2>Подберём изделия под вашу задачу</h2>
-              <p>В этом направлении сейчас нет опубликованных категорий с товарами. Оставьте запрос, и менеджер уточнит подходящие позиции, аналоги и документы.</p>
+              <h2>Подберем изделия под вашу задачу</h2>
+              <p>Оставьте запрос, и менеджер уточнит подходящие позиции, аналоги и документы.</p>
             </div>
             <Link className="primary-action" href="#lead">
               Оставить запрос
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
           </div>
-        </section>
+        </RevealSection>
       )}
 
       <DocumentsBand />
-      <LeadSection title="Подобрать изделия по направлению" text="Опишите задачу или приложите спецификацию: менеджер поможет уточнить позиции, документы и условия поставки." />
+      <LeadSection
+        title="Подобрать изделия по направлению"
+        text="Опишите задачу или спецификацию: менеджер поможет уточнить позиции, документы и условия поставки."
+        source="catalog"
+      />
     </>
   )
 }
@@ -358,17 +454,27 @@ export function DirectionPage({ direction, content = generatedPublicContent }: {
 export function CatalogPage({ content = generatedPublicContent }: { content?: PublicContent }) {
   return (
     <>
-      <section className="catalog-page-head">
-        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }]} />
-        <h1>Каталог медицинских изделий и расходных материалов</h1>
-        <p>
-          В каталоге собраны изделия, расходные материалы и оборудование для клиник, специалистов и закупочных отделов.
-        </p>
-      </section>
-      <section className="section">
+      <RevealSection className="catalog-page-head">
+        <div>
+          <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }]} />
+          <span className="section-kicker">Каталог</span>
+          <h1>Каталог медицинских изделий</h1>
+          <p>
+            Найдите изделие по названию, артикулу или направлению. Если нужной позиции нет в каталоге, отправьте запрос менеджеру.
+          </p>
+        </div>
+        <div className="catalog-top-help">
+          <CircleHelp size={24} aria-hidden="true" />
+          <h2>Не нашли изделие?</h2>
+          <p>Подберем аналог, уточним наличие и документы по запросу.</p>
+          <Link className="primary-action" href="/contacts/stores/#lead">
+            Отправить запрос
+          </Link>
+        </div>
+      </RevealSection>
+      <RevealSection className="section catalog-section">
         <CatalogExplorer categories={content.categoryPages} products={content.productPages} />
-      </section>
-      <LeadSection title="Не нашли нужную позицию в каталоге?" text="Оставьте запрос: менеджер проверит наличие, подберет аналог или подготовит документы по нужному изделию." />
+      </RevealSection>
     </>
   )
 }
@@ -377,68 +483,72 @@ export function CategoryPage({ page, content = generatedPublicContent }: { page:
   const products = getCategoryProducts(content, page.section)
   const node = getCategoryNode(page, content.categoryPages, content.productPages)
   const ancestors = getCategoryAncestors(page, content.categoryPages)
-  const description =
-    page.description && page.description !== 'Интернет-магазин'
-      ? page.description
-      : 'Выберите подкатегорию или отправьте запрос менеджеру для подбора изделия, документов и условий поставки.'
+  const description = cleanText(
+    page.description,
+    'Выберите подкатегорию или отправьте запрос менеджеру для подбора изделия, документов и условий поставки.'
+  )
   const suggestions = getTopCatalogNodes(content.categoryPages, content.productPages)
     .filter((item) => item.category.path !== page.path)
     .slice(0, 4)
 
   return (
     <>
-      <section className="catalog-page-head">
-        <Breadcrumbs
-          items={[
-            { href: '/', label: 'Главная' },
-            { href: '/catalog/', label: 'Каталог' },
-            ...ancestors.map((category) => ({ href: category.path, label: category.h1 })),
-            { href: page.path, label: page.h1 }
-          ]}
-        />
-        <h1>{page.h1}</h1>
-        <p>{description}</p>
-      </section>
+      <RevealSection className="catalog-page-head">
+        <div>
+          <Breadcrumbs
+            items={[
+              { href: '/', label: 'Главная' },
+              { href: '/catalog/', label: 'Каталог' },
+              ...ancestors.map((category) => ({ href: category.path, label: category.h1 })),
+              { href: page.path, label: page.h1 }
+            ]}
+          />
+          <span className="section-kicker">Категория</span>
+          <h1>{page.h1}</h1>
+          <p>{description}</p>
+        </div>
+        <div className="catalog-top-help">
+          <BadgeCheck size={24} aria-hidden="true" />
+          <h2>Цена и наличие</h2>
+          <p>Отправьте заявку по категории, если нужна спецификация или подбор аналога.</p>
+          <Link className="primary-action" href="#lead">
+            Запросить КП
+          </Link>
+        </div>
+      </RevealSection>
 
       {node.children.length > 0 && (
-        <section className="section catalog-section">
-          <div className="section-head">
-            <span className="section-kicker">Подкатегории</span>
-            <h2>Выберите нужный тип изделий</h2>
-          </div>
+        <RevealSection className="section catalog-section">
+          <SectionHead kicker="Подкатегории" title="Выберите нужный тип изделий" />
           <div className="category-grid compact">
             {node.children.map((category) => (
               <CategoryTile key={category.path} category={category} content={content} />
             ))}
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {products.length > 0 && (
-        <section className="section catalog-section">
-          <div className="section-head split">
-            <div>
-              <span className="section-kicker">Товары</span>
-              <h2>{formatCatalogCount(products.length)} в категории</h2>
-            </div>
-            <Link className="outline-action" href="#lead">
-              Получить КП
-            </Link>
-          </div>
+        <RevealSection className="section catalog-section">
+          <SectionHead
+            kicker="Товары"
+            title={`${formatCatalogCount(products.length)} в категории`}
+            action={<Link className="outline-action" href="#lead">Получить КП</Link>}
+          />
           <div className="product-grid">
             {products.map((product) => (
-              <ProductCard key={product.path} product={product} />
+              <ProductCard key={product.path} product={product} categoryTitle={page.h1} />
             ))}
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {!node.children.length && !products.length && (
-        <section className="section catalog-section">
+        <RevealSection className="section catalog-section">
           <div className="empty-category-panel">
             <div>
               <span className="section-kicker">Запрос по разделу</span>
-              <h2>Подберём позицию по вашей спецификации</h2>
+              <h2>Подберем позицию по вашей спецификации</h2>
               <p>В этом разделе нет опубликованных карточек товаров. Оставьте запрос, и менеджер уточнит наличие, аналоги и документы.</p>
             </div>
             <Link className="primary-action" href="#lead">
@@ -453,86 +563,162 @@ export function CategoryPage({ page, content = generatedPublicContent }: { page:
               ))}
             </div>
           )}
-        </section>
+        </RevealSection>
       )}
 
-      <LeadSection title="Запросить подбор по категории" text="Укажите нужный тип изделия, количество или характеристики. Мы уточним наличие, документы и цену." />
+      <LeadSection title="Запросить подбор по категории" text="Укажите нужный тип изделия, количество или характеристики. Мы уточним наличие, документы и цену." source="catalog" />
     </>
   )
 }
 
 export function ProductPage({ product, content = generatedPublicContent }: { product: PublicCatalogPage; content?: PublicContent }) {
   const related = product.section === 'cms' ? [] : getCategoryProducts(content, product.section).filter((item) => item.path !== product.path).slice(0, 3)
-  const attrs = Object.entries(product.attributes)
+  const sameManufacturer = product.brandTitle
+    ? content.productPages
+        .filter((item) => item.path !== product.path && item.brandTitle === product.brandTitle)
+        .slice(0, 3)
+    : []
+  const attrs = Object.entries(product.attributes || {}).filter(([, value]) => Boolean(value))
   const category = getCategoryBySection(content, product.section)
+  const leadProduct = {
+    id: product.id,
+    sku: product.id,
+    title: product.h1,
+    path: product.path,
+    category: category.h1
+  }
 
   return (
     <>
-      <section className="product-layout">
-        <ProductVisual product={product} className="large-product" />
-        <div className="product-copy">
-          <span className="section-kicker">Карточка изделия</span>
-          <h1>{product.h1}</h1>
-          <p>{product.description || 'Уточните характеристики, документы и актуальные условия поставки у менеджера RekoMed.'}</p>
-          <div className="product-actions">
-            <Link className="primary-action" href="#product-lead">
-              Запросить цену
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <Link className="outline-action" href="/documents/">
-              Документы
-            </Link>
+      <RevealSection className="product-page">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }, { href: category.path, label: category.h1 }, { href: product.path, label: product.h1 }]} />
+        <div className="product-hero-grid">
+          <div className="product-gallery">
+            <ProductVisual product={product} className="large-product" />
+            <div className="thumb-row" aria-label="Изображения товара">
+              <button type="button" aria-label="Основное изображение">
+                <img src={product.image || fallbackProductImage} alt="" loading="lazy" />
+              </button>
+            </div>
+          </div>
+          <div className="product-info">
+            <span className="section-kicker">{category.h1}</span>
+            <h1>{product.h1}</h1>
+            <p className="product-meta-line">
+              {product.id ? `Артикул: ${product.id}` : 'Артикул по запросу'} · Категория: {category.h1}
+              {product.brandTitle ? ` · Производитель: ${product.brandTitle}` : ''}
+            </p>
+            <p>{productSummary(product)}</p>
+            <div className="product-badges">
+              <span>Цена по запросу</span>
+              <span>Документы по запросу</span>
+              <span>Для юрлиц</span>
+            </div>
+            <div className="product-actions">
+              <Link className="primary-action" href="#product-lead">
+                Запросить цену и наличие
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link className="outline-action" href="/documents/">
+                Документы
+              </Link>
+            </div>
+            <div className="support-chips">
+              <span>Подбор для клиник и отделений</span>
+              <span>Быстрая обработка запроса</span>
+              <span>Официальные документы по запросу</span>
+            </div>
           </div>
         </div>
-      </section>
-      <section className="section two-column" id="product-lead">
-        <div>
-          <div className="section-head">
-            <span className="section-kicker">Характеристики</span>
-            <h2>Данные для первичного подбора</h2>
-          </div>
-          <dl className="spec-table">
-            <div>
-              <dt>Артикул</dt>
-              <dd>{product.id || 'уточнить'}</dd>
-            </div>
-            <div>
-              <dt>Категория</dt>
-              <dd>{category.h1}</dd>
-            </div>
-            {attrs.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
+      </RevealSection>
+
+      <RevealSection className="section product-detail-layout" id="product-lead">
+        <div className="product-main-panels">
+          <section className="info-panel">
+            <SectionHead kicker="Характеристики" title="Данные для первичного подбора" />
+            <dl className="spec-table">
+              <div>
+                <dt>Артикул</dt>
+                <dd>{product.id || 'уточнить'}</dd>
               </div>
-            ))}
-          </dl>
+              <div>
+                <dt>Категория</dt>
+                <dd>{category.h1}</dd>
+              </div>
+              {product.brandTitle && (
+                <div>
+                  <dt>Производитель</dt>
+                  <dd>
+                    {product.brandPath ? <Link href={product.brandPath}>{product.brandTitle}</Link> : product.brandTitle}
+                  </dd>
+                </div>
+              )}
+              {attrs.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section className="info-panel">
+            <SectionHead kicker="Документы" title="Доступный комплект по запросу" text="Укажите изделие или артикул, и менеджер уточнит доступные документы." />
+            <div className="document-list">
+              {['Регистрационное удостоверение', 'Сертификат соответствия', 'Инструкция по применению', 'Паспорт изделия', 'Декларация о соответствии'].map((item) => (
+                <div className="document-row" key={item}>
+                  <FileText size={18} aria-hidden="true" />
+                  <span>{item}</span>
+                  <small>По запросу</small>
+                </div>
+              ))}
+            </div>
+            <div className="doc-callout">
+              <strong>Не нашли нужный документ?</strong>
+              <p>Оставьте запрос - мы предоставим доступный комплект по изделию.</p>
+              <Link className="outline-action" href="#product-lead">
+                Запросить документ
+              </Link>
+            </div>
+          </section>
+
+          {related.length > 0 && (
+            <section className="info-panel">
+              <SectionHead kicker="Связанные позиции" title="Другие изделия в категории" />
+              <div className="product-grid three">
+                {related.map((item) => (
+                  <ProductCard key={item.path} product={item} categoryTitle={category.h1} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {sameManufacturer.length > 0 && (
+            <section className="info-panel">
+              <SectionHead kicker="Производитель" title={`Другие изделия ${product.brandTitle}`} />
+              <div className="product-grid three">
+                {sameManufacturer.map((item) => (
+                  <ProductCard
+                    key={item.path}
+                    product={item}
+                    categoryTitle={getCategoryBySection(content, item.section).h1}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-        <LeadForm
-          product={{
-            id: product.id,
-            sku: product.id,
-            title: product.h1,
-            path: product.path,
-            category: category.h1
-          }}
-          title="Запросить наличие и цену"
-          text="Товар уже выбран. Оставьте контакты, и менеджер уточнит наличие, цену и документы."
-        />
-      </section>
-      {related.length > 0 && (
-        <section className="section band">
-          <div className="section-head">
-            <span className="section-kicker">Связанные позиции</span>
-            <h2>Другие изделия в категории</h2>
-          </div>
-          <div className="product-grid three">
-            {related.map((item) => (
-              <ProductCard key={item.path} product={item} />
-            ))}
-          </div>
-        </section>
-      )}
+        <aside className="product-request-card">
+          <LeadForm
+            product={leadProduct}
+            type="availability"
+            title="Запросить цену и наличие"
+            text="Менеджер свяжется с вами в ближайшее время."
+            submitLabel="Отправить запрос"
+          />
+        </aside>
+      </RevealSection>
+      <MobileProductCTA product={leadProduct} />
     </>
   )
 }
@@ -540,25 +726,25 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
 export function BrandPage({ page, content = generatedPublicContent }: { page: PublicCatalogPage; content?: PublicContent }) {
   return (
     <>
-      <section className="page-hero compact-hero">
-        <span className="section-kicker">Производитель</span>
-        <h1>{page.h1}</h1>
-        <p>{page.description || 'Информация о производителе и связанных медицинских изделиях.'}</p>
-        <Link className="primary-action" href="#lead">
-          Запросить позиции бренда
+      <RevealSection className="page-hero compact-hero">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: 'Производители' }]} />
+        <span className="section-kicker">Бренды в каталоге</span>
+        <h1>Производители</h1>
+        <p>Найдите изделия по производителю или перейдите в каталог с готовым фильтром.</p>
+        <Link className="primary-action" href="/catalog/">
+          Перейти в каталог
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
-      </section>
-      <section className="section">
-        <div className="brand-list">
-          {content.brandPages.map((brand) => (
-            <Link key={brand.path} href={brand.path}>
-              {brand.h1}
-            </Link>
-          ))}
-        </div>
-      </section>
-      <LeadSection title="Запросить позиции производителя" text="Напишите, какие изделия или документы по бренду нужны. Менеджер уточнит доступные позиции и условия поставки." />
+      </RevealSection>
+      <RevealSection className="section">
+        <SectionHead
+          kicker="Изделия по производителям"
+          title="Быстрый переход к бренду"
+          text="Список показывает производителей, которые есть в каталоге. Количество позиций считается по опубликованным товарам."
+        />
+        <ManufacturerListing brands={content.brandPages} products={content.productPages} activeBrandPath={page.path} />
+      </RevealSection>
+      <LeadSection title="Запросить позиции производителя" text="Напишите, какие изделия или документы по бренду нужны. Менеджер уточнит доступные позиции и условия поставки." source="catalog" />
     </>
   )
 }
@@ -566,16 +752,64 @@ export function BrandPage({ page, content = generatedPublicContent }: { page: Pu
 export function DocumentsPage() {
   return (
     <>
-      <section className="page-hero compact-hero">
+      <RevealSection className="page-hero compact-hero documents-hero">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/documents/', label: 'Документы' }]} />
         <span className="section-kicker">Документы</span>
-        <h1>Сертификаты, РУ, инструкции и каталоги</h1>
-        <p>
-          Запросите документы по конкретному изделию, категории или производителю. Менеджер уточнит, какие материалы
-          нужны для вашей закупки.
-        </p>
-      </section>
-      <DocumentsBand />
-      <LeadSection title="Запросить документы на изделие" text="Укажите товар, артикул или категорию: менеджер подберет регистрационные удостоверения, сертификаты или инструкции." />
+        <h1>Документы для медицинских изделий</h1>
+        <p>Предоставляем доступные регистрационные удостоверения, сертификаты, инструкции и сопроводительные документы по запросу.</p>
+      </RevealSection>
+
+      <RevealSection className="section">
+        <SectionHead kicker="Категории" title="Какие документы можно запросить" />
+        <div className="document-card-grid">
+          {documentItems.map((item) => (
+            <div className="document-card" key={item}>
+              <FileCheck2 aria-hidden="true" />
+              <h3>{item}</h3>
+              <p>Статус и доступность уточняются по конкретному изделию.</p>
+            </div>
+          ))}
+        </div>
+      </RevealSection>
+
+      <RevealSection className="section band">
+        <SectionHead kicker="Процесс" title="Как запросить документы" />
+        <div className="process-grid three">
+          {['Укажите изделие или артикул', 'Оставьте контакты', 'Получите доступный комплект документов'].map((step, index) => (
+            <div className="process-step" key={step}>
+              <span>{index + 1}</span>
+              <p>{step}</p>
+              <CheckCircle2 aria-hidden="true" />
+            </div>
+          ))}
+        </div>
+      </RevealSection>
+
+      <RevealSection className="section two-column">
+        <div className="info-panel">
+          <SectionHead kicker="FAQ" title="Частые вопросы" />
+          <div className="faq-list">
+            {[
+              ['Можно ли получить документы до КП?', 'Да, если документ доступен по конкретному изделию. Укажите артикул или название.'],
+              ['Какие документы доступны?', 'Регистрационные удостоверения, сертификаты, декларации, инструкции и паспорта изделий - при наличии.'],
+              ['Что делать, если товара нет в каталоге?', 'Оставьте запрос. Менеджер проверит позицию вручную и предложит следующий шаг.'],
+              ['Как быстро отвечает менеджер?', 'Заявка попадает менеджеру после отправки формы. Срок ответа зависит от сложности запроса.']
+            ].map(([question, answer]) => (
+              <details key={question}>
+                <summary>{question}</summary>
+                <p>{answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+        <LeadForm
+          title="Запросить документы"
+          text="Укажите артикул или название изделия в комментарии."
+          type="documents"
+          source="documents"
+          submitLabel="Запросить документы"
+        />
+      </RevealSection>
     </>
   )
 }
@@ -615,78 +849,42 @@ export function LegalPage({ page, settings }: { page: LegalPageDefinition; setti
 
   return (
     <>
-      <section className="catalog-page-head legal-page-head">
-        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: page.h1 }]} />
-        <span className="section-kicker">{page.kicker}</span>
-        <h1>{page.h1}</h1>
-        <p>{page.description}</p>
-      </section>
+      <RevealSection className="catalog-page-head legal-page-head">
+        <div>
+          <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: page.h1 }]} />
+          <span className="section-kicker">{page.kicker}</span>
+          <h1>{page.h1}</h1>
+          <p>{page.description}</p>
+        </div>
+      </RevealSection>
 
-      <section className="section legal-page">
+      <RevealSection className="section legal-page">
         {customText && page.key !== 'legal' && page.key !== 'license' && <EditableLegalText text={customText} />}
 
         {page.key === 'privacy' && !customText && (
           <div className="legal-card">
             <h2>Какие данные обрабатываются</h2>
-            <p>
-              RekoMed обрабатывает данные, которые пользователь передает через формы сайта: имя, телефон, email,
-              комментарий, выбранный товар, страницу заявки и UTM-метки.
-            </p>
-            <h2>Правовые основания</h2>
-            <p>
-              Обработка выполняется на основании согласия пользователя, требований Федерального закона от 27.07.2006
-              N 152-ФЗ "О персональных данных", а также законных интересов оператора при обработке обращений.
-            </p>
+            <p>RekoMed обрабатывает данные, которые пользователь передает через формы сайта: имя, телефон, email, комментарий, выбранный товар, страницу заявки и UTM-метки.</p>
             <h2>Цели обработки</h2>
-            <p>
-              Данные используются для ответа на заявку, подготовки коммерческого предложения, уточнения наличия,
-              документов и условий поставки. Cookie и аналитика применяются только после согласия пользователя.
-            </p>
-            <h2>Срок хранения и отзыв согласия</h2>
-            <p>
-              Данные обрабатываются до достижения целей обработки или до отзыва согласия, если иной срок не требуется
-              по закону. Отозвать согласие можно, направив обращение на{' '}
-              <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
-            </p>
+            <p>Данные используются для ответа на заявку, подготовки коммерческого предложения, уточнения наличия, документов и условий поставки.</p>
             <h2>Оператор данных</h2>
-            <p>
-              Оператор: {operatorName}. Для вопросов по персональным данным можно написать на{' '}
-              <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
-            </p>
+            <p>Оператор: {operatorName}. Для вопросов по персональным данным можно написать на <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>
           </div>
         )}
 
         {page.key === 'consent' && !customText && (
           <div className="legal-card">
             <h2>Текст согласия</h2>
-            <p>
-              Отправляя форму на сайте RekoMed, пользователь дает согласие {operatorName} на обработку персональных
-              данных, указанных в форме, включая имя, телефон, email, комментарий, сведения о выбранном товаре и страницу
-              отправки заявки.
-            </p>
-            <p>
-              Согласие распространяется на сбор, запись, систематизацию, накопление, хранение, уточнение, использование,
-              передачу в случаях, необходимых для обработки заявки и работы сайта, обезличивание, блокирование,
-              удаление и уничтожение персональных данных.
-            </p>
-            <p>
-              Согласие действует до достижения целей обработки или до его отзыва. Отозвать согласие можно, направив
-              обращение на <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
-            </p>
+            <p>Отправляя форму на сайте RekoMed, пользователь дает согласие {operatorName} на обработку персональных данных, указанных в форме.</p>
+            <p>Согласие действует до достижения целей обработки или до его отзыва. Отозвать согласие можно по адресу <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>
           </div>
         )}
 
         {page.key === 'terms' && !customText && (
           <div className="legal-card">
             <h2>Правила использования сайта</h2>
-            <p>
-              Сайт RekoMed содержит справочную информацию о медицинских изделиях, расходных материалах, документах и
-              условиях обращения к менеджеру. Информация на сайте не является публичной офертой.
-            </p>
-            <p>
-              Цена, наличие, сроки поставки, применимость изделия и комплект документов уточняются менеджером после
-              получения заявки.
-            </p>
+            <p>Сайт RekoMed содержит справочную информацию о медицинских изделиях, расходных материалах, документах и условиях обращения к менеджеру. Информация на сайте не является публичной офертой.</p>
+            <p>Цена, наличие, сроки поставки, применимость изделия и комплект документов уточняются менеджером после получения заявки.</p>
           </div>
         )}
 
@@ -711,10 +909,7 @@ export function LegalPage({ page, settings }: { page: LegalPageDefinition; setti
             {customText ? (
               <div className="legal-copy">{customText}</div>
             ) : (
-              <p>
-                Сведения о лицензиях и дополнительных документах будут размещены после подтверждения владельцем сайта.
-                Для запроса документов по изделиям обратитесь к менеджеру RekoMed.
-              </p>
+              <p>Сведения о лицензиях и дополнительных документах будут размещены после подтверждения владельцем сайта. Для запроса документов по изделиям обратитесь к менеджеру RekoMed.</p>
             )}
             {settings.licenseFileUrl && (
               <a className="outline-action legal-doc-link" href={settings.licenseFileUrl}>
@@ -723,7 +918,7 @@ export function LegalPage({ page, settings }: { page: LegalPageDefinition; setti
             )}
           </div>
         )}
-      </section>
+      </RevealSection>
     </>
   )
 }
@@ -731,83 +926,134 @@ export function LegalPage({ page, settings }: { page: LegalPageDefinition; setti
 export function CompanyPage() {
   return (
     <>
-      <section className="page-hero company-hero">
+      <RevealSection className="page-hero company-hero">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/company/', label: 'О компании' }]} />
         <span className="section-kicker">О компании</span>
-        <h1>RekoMed помогает медицинским организациям получать изделия, документы и КП под закупочную задачу</h1>
-        <p>
-          Мы работаем с клиниками, врачами, закупочными отделами и юридическими лицами: уточняем позицию,
-          проверяем характеристики, готовим документы и помогаем пройти путь от запроса до поставки.
-        </p>
+        <h1>О RekoMed</h1>
+        <p>Мы помогаем медицинским организациям подбирать изделия, уточнять наличие и получать документы для закупки.</p>
         <div className="hero-actions">
           <Link className="primary-action" href="#lead">
-            Связаться с менеджером
+            Запросить КП
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
-          <Link className="outline-action" href="/documents/">
-            Запросить документы
+          <Link className="outline-action" href="/catalog/">
+            Перейти в каталог
           </Link>
         </div>
-      </section>
-      <section className="section">
-        <div className="section-head">
-          <span className="section-kicker">Как помогаем</span>
-          <h2>Помогаем пройти путь от запроса до поставки</h2>
-        </div>
+      </RevealSection>
+
+      <RevealSection className="section">
+        <SectionHead kicker="Для кого" title="Работаем с медицинскими организациями и специалистами" />
         <div className="trust-grid">
-          <div className="trust-card">
-            <Search aria-hidden="true" />
-            <h3>Подбор позиции</h3>
-            <p>Уточняем категорию, артикул, типоразмер, характеристики и возможные аналоги.</p>
-          </div>
-          <div className="trust-card">
-            <FileText aria-hidden="true" />
-            <h3>Документы</h3>
-            <p>Помогаем запросить регистрационные удостоверения, сертификаты, инструкции и каталоги.</p>
-          </div>
-          <div className="trust-card">
-            <ClipboardCheck aria-hidden="true" />
-            <h3>Коммерческое предложение</h3>
-            <p>Готовим КП под спецификацию, заявку или регулярную потребность организации.</p>
-          </div>
-          <div className="trust-card">
-            <Handshake aria-hidden="true" />
-            <h3>Работа с юрлицами</h3>
-            <p>Сопровождаем поставку, счета и закрывающие документы для медицинских организаций.</p>
-          </div>
+          {[
+            ['Клиники и отделения', 'Подбор изделий под профильную задачу.'],
+            ['Закупочные отделы', 'КП, документы и спецификации для согласования.'],
+            ['Врачи и специалисты', 'Уточнение параметров и доступных аналогов.'],
+            ['Юридические лица', 'Счета, договоры и закрывающие документы.']
+          ].map(([title, text]) => (
+            <div className="trust-card" key={title}>
+              <Building2 aria-hidden="true" />
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </div>
+          ))}
         </div>
-      </section>
+      </RevealSection>
+
       <ProcessSection />
-      <LeadSection title="Обсудить задачу с RekoMed" text="Оставьте контакты и кратко опишите, какие изделия, документы или КП нужны вашей организации." />
+      <TrustSection />
+      <LeadSection title="Нужна помощь с подбором?" text="Оставьте заявку - подготовим КП и уточним документы." source="contacts" />
     </>
   )
 }
 
-export function InfoPage({ page }: { page: PublicCatalogPage }) {
-  const isContact = page.kind === 'contacts'
+export function InfoPage({ page, settings }: { page: PublicCatalogPage; settings?: PublicSiteSettings }) {
+  const isContact = page.kind === 'contacts' || page.path.includes('/contacts')
+  const phone = settings?.phone || company.phone
+  const email = settings?.email || company.email
+  const address = settings?.address || company.address
+  const legalName = settings?.legalName || company.legalName
+  const legalInn = settings?.legalInn || ''
+  const legalOgrn = settings?.legalOgrn || ''
+  const yandexMapUrl = 'https://yandex.ru/map-widget/v1/?ll=39.251192%2C51.672452&mode=search&oid=227723470864&ol=biz&z=14'
+
+  if (isContact) {
+    return (
+      <>
+        <RevealSection className="page-hero compact-hero contacts-hero">
+          <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: 'Контакты' }]} />
+          <span className="section-kicker">Контакты</span>
+          <h1>Контакты</h1>
+          <p>Свяжитесь с нами, если нужно КП, цена, наличие, документы или подбор изделия.</p>
+        </RevealSection>
+        <RevealSection className="section contact-layout" id="lead">
+          <div className="contact-panels">
+            <div className="info-panel contact-card">
+              <Phone aria-hidden="true" />
+              <h2>Телефон</h2>
+              <a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>{phone}</a>
+            </div>
+            <div className="info-panel contact-card">
+              <Mail aria-hidden="true" />
+              <h2>Email</h2>
+              <a href={`mailto:${email}`}>{email}</a>
+            </div>
+            <div className="info-panel contact-card">
+              <MapPin aria-hidden="true" />
+              <h2>Адрес</h2>
+              <p>{address}</p>
+            </div>
+            <div className="info-panel contact-card">
+              <Clock aria-hidden="true" />
+              <h2>Время работы</h2>
+              <p>Пн-Пт: 9:00-17:30</p>
+            </div>
+            <div className="map-card">
+              <iframe
+                src={yandexMapUrl}
+                title={`Карта проезда: ${address}`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+            <div className="info-panel requisites-card">
+              <h2>Реквизиты</h2>
+              <dl className="legal-list">
+                <div>
+                  <dt>Наименование</dt>
+                  <dd>{legalName}</dd>
+                </div>
+                {legalInn && (
+                  <div>
+                    <dt>ИНН</dt>
+                    <dd>{legalInn}</dd>
+                  </div>
+                )}
+                {legalOgrn && (
+                  <div>
+                    <dt>ОГРН</dt>
+                    <dd>{legalOgrn}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          </div>
+          <LeadForm title="Связаться с RekoMed" text="Опишите задачу, изделие или документы, которые нужны." source="contacts" />
+        </RevealSection>
+      </>
+    )
+  }
 
   return (
     <>
-      <section className="page-hero compact-hero">
-        <span className="section-kicker">{isContact ? 'Контакты' : 'Информация'}</span>
+      <RevealSection className="page-hero compact-hero">
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: page.h1 }]} />
+        <span className="section-kicker">Информация</span>
         <h1>{page.h1}</h1>
-        <p>{page.description || 'Информация RekoMed для клиентов, партнёров и закупочных отделов.'}</p>
-      </section>
-      <section className="section two-column" id="lead">
-        <div className="info-block">
-          <h2>{isContact ? 'Связаться с менеджером' : 'Как работаем'}</h2>
-          <p>
-            {isContact
-              ? `${company.address}. ${company.hours}. Телефон и почта доступны для заявок на КП, документы и подбор.`
-              : 'Получаем заявку или спецификацию, уточняем задачу, подбираем позиции и передаём коммерческое предложение.'}
-          </p>
-          <div className="contact-lines">
-            <a href={company.phoneHref}>{company.phone}</a>
-            <a href={company.emailHref}>{company.email}</a>
-            <span>{company.address}</span>
-          </div>
-        </div>
-        <LeadForm title="Связаться с RekoMed" />
-      </section>
+        <p>{cleanText(page.description, 'Информация RekoMed для клиентов, партнеров и закупочных отделов.')}</p>
+      </RevealSection>
+      <LeadSection />
     </>
   )
 }
@@ -821,11 +1067,8 @@ export function TrustSection() {
   ]
 
   return (
-    <section className="section">
-      <div className="section-head">
-        <span className="section-kicker">Доверие</span>
-        <h2>Надёжность подтверждается документами и понятными условиями</h2>
-      </div>
+    <RevealSection className="section">
+      <SectionHead kicker="Документы и доверие" title="Надежность подтверждается документами и понятными условиями" />
       <div className="trust-grid">
         {items.map((item) => {
           const Icon = item.icon
@@ -838,44 +1081,40 @@ export function TrustSection() {
           )
         })}
       </div>
-    </section>
+    </RevealSection>
   )
 }
 
 export function ProcessSection() {
-  const steps = ['Заявка или спецификация', 'Подбор и проверка документов', 'Коммерческое предложение', 'Поставка и закрывающие документы']
-
   return (
-    <section className="section band">
-      <div className="section-head">
-        <span className="section-kicker">Процесс</span>
-        <h2>Как проходит работа по заявке</h2>
-      </div>
+    <RevealSection className="section band">
+      <SectionHead kicker="Процесс" title="Как мы работаем" />
       <div className="process-grid">
-        {steps.map((step, index) => (
-          <div key={step} className="process-step">
+        {processItems.map((step, index) => (
+          <div key={step.title} className="process-step">
             <span>{index + 1}</span>
-            <p>{step}</p>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
             <CheckCircle2 aria-hidden="true" />
           </div>
         ))}
       </div>
-    </section>
+    </RevealSection>
   )
 }
 
 export function DocumentsBand() {
   return (
-    <section className="section document-band">
+    <RevealSection className="section document-band">
       <div>
         <span className="section-kicker">Документы</span>
-        <h2>Запросите РУ, сертификаты, инструкции или PDF-каталог</h2>
-        <p>Укажите изделие, артикул или направление. Мы подскажем, какие документы можно подготовить под запрос.</p>
+        <h2>Нужен документ по конкретному изделию?</h2>
+        <p>Запросите - отправим доступный комплект в одном письме.</p>
       </div>
-      <Link className="primary-action" href="#lead">
+      <Link className="primary-action" href="/documents/">
         Запросить документы
         <ArrowRight size={18} aria-hidden="true" />
       </Link>
-    </section>
+    </RevealSection>
   )
 }
