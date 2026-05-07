@@ -33,12 +33,11 @@ import { RevealSection } from '@/components/Motion'
 import { ProductCard, fallbackProductImage } from '@/components/catalog/ProductCard'
 import { ManufacturerListing } from '@/components/catalog/ManufacturerListing'
 import { MobileProductCTA } from '@/components/product/MobileProductCTA'
-import { company, directions, type Direction } from '@/lib/content'
+import { company } from '@/lib/content'
 import {
   generatedPublicContent,
   getCategoryBySection,
   getCategoryProducts,
-  getProductsForSections,
   type PublicCatalogPage,
   type PublicContent
 } from '@/lib/cms-content'
@@ -46,9 +45,9 @@ import {
   formatCatalogCount,
   getCategoryAncestors,
   getCategoryNode,
-  getTopCatalogNodes,
-  isWorkingCategory
+  getTopCatalogNodes
 } from '@/lib/catalog-hierarchy'
+import { getCategoryCatalogHref, getDirectionCatalogHref, isCatalogDirectionSection, normalizeDirectionSlug } from '@/lib/catalog-links'
 import type { LegalPageDefinition } from '@/lib/legal-pages'
 import type { PublicSiteSettings } from '@/lib/site-settings'
 
@@ -66,14 +65,14 @@ type DirectionCard = {
 }
 
 const directionCards: DirectionCard[] = [
-  { section: 'neyrokhirurgiya', href: '/nejrohirurgiya/', title: 'Нейрохирургия', text: 'Кейджи, фиксация, пластины', icon: Activity },
-  { section: 'travmatologiya', href: '/osteosintez/', title: 'Травматология', text: 'Пластины, винты, штифты', icon: Bone },
-  { section: 'ortopediya', href: '/endoprotezirovanie/', title: 'Ортопедия', text: 'Компоненты суставов', icon: HeartPulse },
-  { section: 'khirurgiya', href: '/catalog/khirurgiya/', title: 'Хирургия', text: 'Материалы и инструменты', icon: Stethoscope },
-  { section: 'oborudovanie', href: '/medicinskoe-oborudovanie/', title: 'Оборудование', text: 'Подбор под кабинет', icon: Microscope },
-  { section: 'otolaringologiya', href: '/catalog/otolaringologiya/', title: 'Оториноларингология', text: 'ЛОР-оборудование', icon: Layers3 },
-  { section: 'stomatologiya', href: '/catalog/stomatologiya/', title: 'Стоматология', text: 'Шовный материал', icon: FileCheck2 },
-  { section: 'reabilitatsiya', href: '/catalog/reabilitatsiya/', title: 'Реабилитация', text: 'Позиции по запросу', icon: PackageCheck }
+  { section: 'neyrokhirurgiya', href: getDirectionCatalogHref('neyrokhirurgiya'), title: 'Нейрохирургия', text: 'Кейджи, фиксация, пластины', icon: Activity },
+  { section: 'travmatologiya', href: getDirectionCatalogHref('travmatologiya'), title: 'Травматология', text: 'Пластины, винты, штифты', icon: Bone },
+  { section: 'ortopediya', href: getDirectionCatalogHref('ortopediya'), title: 'Ортопедия', text: 'Компоненты суставов', icon: HeartPulse },
+  { section: 'khirurgiya', href: getDirectionCatalogHref('khirurgiya'), title: 'Хирургия', text: 'Материалы и инструменты', icon: Stethoscope },
+  { section: 'oborudovanie', href: getDirectionCatalogHref('oborudovanie'), title: 'Оборудование', text: 'Подбор под кабинет', icon: Microscope },
+  { section: 'otolaringologiya', href: getDirectionCatalogHref('otolaringologiya'), title: 'Оториноларингология', text: 'ЛОР-оборудование', icon: Layers3 },
+  { section: 'stomatologiya', href: getDirectionCatalogHref('stomatologiya'), title: 'Стоматология', text: 'Шовный материал', icon: FileCheck2 },
+  { section: 'reabilitatsiya', href: getDirectionCatalogHref('reabilitatsiya'), title: 'Реабилитация', text: 'Позиции по запросу', icon: PackageCheck }
 ]
 
 const documentItems = [
@@ -148,6 +147,35 @@ const uniqueProducts = (products: PublicCatalogPage[]) => {
   })
 }
 
+const directionCatalogHeadings: Record<string, string> = {
+  neyrokhirurgiya: 'Изделия для нейрохирургии',
+  travmatologiya: 'Изделия для травматологии',
+  ortopediya: 'Изделия для ортопедии',
+  khirurgiya: 'Изделия для хирургии',
+  oborudovanie: 'Медицинское оборудование',
+  otolaringologiya: 'Изделия для оториноларингологии',
+  reabilitatsiya: 'Изделия для реабилитации',
+  stomatologiya: 'Изделия для стоматологии'
+}
+
+const getCatalogDirection = (content: PublicContent, section?: string) => {
+  if (!section || section === 'all') return undefined
+  const normalizedSection = normalizeDirectionSlug(section)
+  return getTopCatalogNodes(content.categoryPages, content.productPages).find((node) => node.category.section === normalizedSection)?.category
+}
+
+const getProductDirectionCategory = (content: PublicContent, product: PublicCatalogPage) => {
+  const category = getCategoryBySection(content, product.section)
+  const productSections = [
+    category.section,
+    ...getCategoryAncestors(category, content.categoryPages).map((item) => item.section)
+  ]
+
+  return getTopCatalogNodes(content.categoryPages, content.productPages).find((node) =>
+    productSections.includes(node.category.section)
+  )?.category
+}
+
 function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
     <nav className="breadcrumbs" aria-label="Хлебные крошки">
@@ -203,9 +231,10 @@ function DirectionTile({ item, count }: { item: DirectionCard; count: number }) 
 
 function CategoryTile({ category, content }: { category: PublicCatalogPage; content: PublicContent }) {
   const count = getCategoryNode(category, content.categoryPages, content.productPages).descendantProductCount
+  const href = isCatalogDirectionSection(category.section) ? getDirectionCatalogHref(category.section) : category.path
 
   return (
-    <Link className="category-tile" href={category.path}>
+    <Link className="category-tile" href={href}>
       <span>{category.h1}</span>
       <small>{formatCatalogCount(count)}</small>
       <ArrowRight size={18} aria-hidden="true" />
@@ -318,11 +347,11 @@ export function HomePage({ content = generatedPublicContent }: { content?: Publi
         </div>
       </RevealSection>
 
-      <RevealSection className="section">
+      <RevealSection className="section" id="directions">
         <SectionHead
           kicker="Направления"
-          title="Ключевые направления"
-          text="Выберите профильный раздел, если уже знаете область применения или тип изделия."
+          title="Быстрый переход по направлениям"
+          text="Выберите медицинское направление - откроем каталог с подходящими позициями."
         />
         <div className="direction-grid">
           {directionCards.map((item) => (
@@ -359,7 +388,7 @@ export function HomePage({ content = generatedPublicContent }: { content?: Publi
 
       <TrustSection />
       {hasManufacturerProducts && (
-        <RevealSection className="section">
+        <RevealSection className="section" id="manufacturers">
           <FeaturedManufacturerSection brands={content.brandPages} products={content.productPages} />
         </RevealSection>
       )}
@@ -369,99 +398,29 @@ export function HomePage({ content = generatedPublicContent }: { content?: Publi
   )
 }
 
-export function DirectionPage({ direction, content = generatedPublicContent }: { direction: Direction; content?: PublicContent }) {
-  const categories = direction.oldSections
-    .map((section) => content.categoryPages.find((category) => category.section === section))
-    .filter((category): category is PublicCatalogPage => Boolean(category))
-    .filter((category) => isWorkingCategory(category, content.categoryPages, content.productPages))
-  const products = getProductsForSections(content, direction.oldSections, 9)
+export function CatalogPage({
+  content = generatedPublicContent,
+  initialDirection
+}: {
+  content?: PublicContent
+  initialDirection?: string
+}) {
+  const activeDirection = getCatalogDirection(content, initialDirection)
+  const catalogTitle = activeDirection
+    ? directionCatalogHeadings[activeDirection.section] || `Изделия направления «${activeDirection.h1}»`
+    : 'Каталог медицинских изделий'
+  const catalogDescription = activeDirection
+    ? `Позиции направления «${activeDirection.h1}»: уточняйте наличие, цену и документы по заявке.`
+    : 'Найдите изделие по названию, артикулу, направлению или производителю. Если нужной позиции нет в каталоге, отправьте запрос менеджеру.'
 
-  return (
-    <>
-      <RevealSection className="page-hero compact-hero">
-        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: `/${direction.slug}/`, label: direction.eyebrow }]} />
-        <span className="section-kicker">{direction.eyebrow}</span>
-        <h1>{direction.title}</h1>
-        <p>{direction.summary}</p>
-        <div className="tag-row">
-          {direction.highlights.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
-        </div>
-        <div className="hero-actions">
-          <Link className="primary-action" href="#lead">
-            Оставить заявку
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
-          <Link className="outline-action" href="/catalog/">
-            Перейти в каталог
-          </Link>
-        </div>
-      </RevealSection>
-
-      {categories.length > 0 && (
-        <RevealSection className="section">
-          <SectionHead kicker="Подкатегории" title="Быстрый переход к нужному типу изделий" />
-          <div className="category-grid compact">
-            {categories.map((category) => (
-              <CategoryTile key={category.path} category={category} content={content} />
-            ))}
-          </div>
-        </RevealSection>
-      )}
-
-      {products.length > 0 && (
-        <RevealSection className="section band">
-          <SectionHead
-            kicker="Позиции"
-            title="Примеры товаров по направлению"
-            action={<Link className="outline-action" href="/catalog/">Открыть каталог</Link>}
-          />
-          <div className="product-grid">
-            {products.map((product) => (
-              <ProductCard key={product.path} product={product} categoryTitle={getCategoryBySection(content, product.section).h1} />
-            ))}
-          </div>
-        </RevealSection>
-      )}
-
-      {!categories.length && !products.length && (
-        <RevealSection className="section">
-          <div className="empty-category-panel">
-            <div>
-              <span className="section-kicker">Запрос по направлению</span>
-              <h2>Подберем изделия под вашу задачу</h2>
-              <p>Оставьте запрос, и менеджер уточнит подходящие позиции, аналоги и документы.</p>
-            </div>
-            <Link className="primary-action" href="#lead">
-              Оставить запрос
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-          </div>
-        </RevealSection>
-      )}
-
-      <DocumentsBand />
-      <LeadSection
-        title="Подобрать изделия по направлению"
-        text="Опишите задачу или спецификацию: менеджер поможет уточнить позиции, документы и условия поставки."
-        source="catalog"
-      />
-    </>
-  )
-}
-
-export function CatalogPage({ content = generatedPublicContent }: { content?: PublicContent }) {
   return (
     <>
       <RevealSection className="catalog-page-head">
         <div>
           <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }]} />
           <span className="section-kicker">Каталог</span>
-          <h1>Каталог медицинских изделий</h1>
-          <p>
-            Найдите изделие по названию, артикулу или направлению. Если нужной позиции нет в каталоге, отправьте запрос менеджеру.
-          </p>
+          <h1>{catalogTitle}</h1>
+          <p>{catalogDescription}</p>
         </div>
         <div className="catalog-top-help">
           <CircleHelp size={24} aria-hidden="true" />
@@ -473,7 +432,7 @@ export function CatalogPage({ content = generatedPublicContent }: { content?: Pu
         </div>
       </RevealSection>
       <RevealSection className="section catalog-section">
-        <CatalogExplorer categories={content.categoryPages} products={content.productPages} />
+        <CatalogExplorer categories={content.categoryPages} products={content.productPages} initialDirection={activeDirection?.section} />
       </RevealSection>
     </>
   )
@@ -499,7 +458,10 @@ export function CategoryPage({ page, content = generatedPublicContent }: { page:
             items={[
               { href: '/', label: 'Главная' },
               { href: '/catalog/', label: 'Каталог' },
-              ...ancestors.map((category) => ({ href: category.path, label: category.h1 })),
+              ...ancestors.map((category) => ({
+                href: isCatalogDirectionSection(category.section) ? getDirectionCatalogHref(category.section) : category.path,
+                label: category.h1
+              })),
               { href: page.path, label: page.h1 }
             ]}
           />
@@ -580,6 +542,16 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
     : []
   const attrs = Object.entries(product.attributes || {}).filter(([, value]) => Boolean(value))
   const category = getCategoryBySection(content, product.section)
+  const direction = getProductDirectionCategory(content, product)
+  const directionHref = direction ? getDirectionCatalogHref(direction.section) : ''
+  const categoryHref = getCategoryCatalogHref(category.section, direction?.section)
+  const productBreadcrumbs = [
+    { href: '/', label: 'Главная' },
+    { href: '/catalog/', label: 'Каталог' },
+    ...(direction ? [{ href: directionHref, label: direction.h1 }] : []),
+    ...(direction?.section === category.section ? [] : [{ href: categoryHref, label: category.h1 }]),
+    { href: product.path, label: product.h1 }
+  ]
   const leadProduct = {
     id: product.id,
     sku: product.id,
@@ -591,7 +563,7 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
   return (
     <>
       <RevealSection className="product-page">
-        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }, { href: category.path, label: category.h1 }, { href: product.path, label: product.h1 }]} />
+        <Breadcrumbs items={productBreadcrumbs} />
         <div className="product-hero-grid">
           <div className="product-gallery">
             <ProductVisual product={product} className="large-product" />
@@ -605,7 +577,8 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
             <span className="section-kicker">{category.h1}</span>
             <h1>{product.h1}</h1>
             <p className="product-meta-line">
-              {product.id ? `Артикул: ${product.id}` : 'Артикул по запросу'} · Категория: {category.h1}
+              {product.id ? `Артикул: ${product.id}` : 'Артикул по запросу'}
+              {direction ? ` · Направление: ${direction.h1}` : ''} · Категория: {category.h1}
               {product.brandTitle ? ` · Производитель: ${product.brandTitle}` : ''}
             </p>
             <p>{productSummary(product)}</p>
@@ -627,6 +600,7 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
               <span>Подбор для клиник и отделений</span>
               <span>Быстрая обработка запроса</span>
               <span>Официальные документы по запросу</span>
+              {direction && <Link href={directionHref}>Все товары направления</Link>}
             </div>
           </div>
         </div>
@@ -642,8 +616,14 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
                 <dd>{product.id || 'уточнить'}</dd>
               </div>
               <div>
+                <dt>Направление</dt>
+                <dd>{direction ? <Link href={directionHref}>{direction.h1}</Link> : 'уточнить'}</dd>
+              </div>
+              <div>
                 <dt>Категория</dt>
-                <dd>{category.h1}</dd>
+                <dd>
+                  <Link href={categoryHref}>{category.h1}</Link>
+                </dd>
               </div>
               {product.brandTitle && (
                 <div>

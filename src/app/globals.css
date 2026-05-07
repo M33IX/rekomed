@@ -621,6 +621,7 @@ main {
 .popular-searches button,
 .tag-row span,
 .support-chips span,
+.support-chips a,
 .product-badges span,
 .status-badge {
   min-height: 34px;
@@ -773,11 +774,19 @@ main {
 .category-tile {
   min-height: 116px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) 20px;
   align-items: center;
   gap: 14px;
   padding: 18px;
   transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+
+.direction-tile > svg,
+.category-tile > svg {
+  width: 18px;
+  height: 18px;
+  justify-self: end;
+  flex: none;
 }
 
 .direction-tile:hover,
@@ -808,10 +817,13 @@ main {
 .tile-content strong,
 .category-tile span {
   display: block;
+  max-width: 100%;
   color: var(--color-text-primary);
   font-size: 17px;
   line-height: 1.25;
   font-weight: 850;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .tile-content small,
@@ -1128,6 +1140,43 @@ main {
   font-size: 12px;
 }
 
+.active-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.active-filter-row > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.active-filter-row button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(8, 122, 138, 0.18);
+  border-radius: var(--radius-full);
+  padding: 0 12px;
+  color: var(--color-primary-dark);
+  background: var(--color-accent-pale);
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.active-filter-row button:hover,
+.active-filter-row button:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--color-accent-mint);
+  transform: translateY(-1px);
+}
+
 .catalog-layout {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
@@ -1380,9 +1429,17 @@ main {
   margin-top: 20px;
 }
 
-.support-chips span {
+.support-chips span,
+.support-chips a {
   color: var(--color-text-secondary);
   background: var(--color-surface-default);
+}
+
+.support-chips a:hover,
+.support-chips a:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-accent-pale);
 }
 
 .product-detail-layout {
@@ -2674,6 +2731,7 @@ main {
   .trust-strip span,
   .product-badges span,
   .support-chips span,
+  .support-chips a,
   .tag-row span {
     width: 100%;
     justify-content: center;

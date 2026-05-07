@@ -126,7 +126,6 @@ export const directions: Direction[] = [
 
 export const navigation = [
   { href: '/', label: 'Главная' },
-  { href: '/osteosintez/', label: 'Направления' },
   { href: '/catalog/', label: 'Каталог' },
   { href: '/brands/226/', label: 'Производители' },
   { href: '/documents/', label: 'Документы' },
