@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Filter, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { PublicCatalogPage } from '@/lib/cms-content'
+import { normalizeDirectionSlug, updateCatalogSearchParams } from '@/lib/catalog-links'
 import {
   formatCatalogCount,
   getCategoryAncestors,
@@ -18,6 +19,7 @@ import { ProductCard } from '@/components/catalog/ProductCard'
 type CatalogExplorerProps = {
   categories: PublicCatalogPage[]
   products: PublicCatalogPage[]
+  initialDirection?: string
 }
 
 type SortMode = 'popular' | 'title' | 'article'
@@ -32,12 +34,13 @@ const includesQuery = (product: PublicCatalogPage, query: string) => {
   return norm(`${product.h1} ${product.title} ${product.id} ${product.description} ${attributes}`).includes(query)
 }
 
-export function CatalogExplorer({ categories, products }: CatalogExplorerProps) {
+export function CatalogExplorer({ categories, products, initialDirection }: CatalogExplorerProps) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
-  const [direction, setDirection] = useState('all')
-  const [category, setCategory] = useState('all')
-  const [brand, setBrand] = useState('all')
+  const [direction, setDirection] = useState(initialDirection || searchParams.get('direction') || 'all')
+  const [category, setCategory] = useState(searchParams.get('category') || 'all')
+  const [brand, setBrand] = useState(searchParams.get('manufacturer') || searchParams.get('brand') || 'all')
   const [docsOnly, setDocsOnly] = useState(false)
   const [sort, setSort] = useState<SortMode>('popular')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -68,14 +71,31 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
   )
 
   useEffect(() => {
+    const directionParam = searchParams.get('direction') || initialDirection
+    const normalizedDirectionParam = normalizeDirectionSlug(directionParam)
+    const matchedDirection = directionParam
+      ? topNodes.find((node) => node.category.section === normalizedDirectionParam || norm(node.category.h1) === norm(directionParam))
+      : undefined
+
+    setDirection(matchedDirection?.category.section || 'all')
+  }, [initialDirection, searchParams, topNodes])
+
+  useEffect(() => {
+    const categoryParam = searchParams.get('category')
+    const matchedCategory = categoryParam
+      ? workingCategories.find((item) => item.section === categoryParam || norm(item.h1) === norm(categoryParam))
+      : undefined
+
+    setCategory(matchedCategory?.section || 'all')
+  }, [searchParams, workingCategories])
+
+  useEffect(() => {
     const manufacturerParam = searchParams.get('manufacturer') || searchParams.get('brand')
-    if (!manufacturerParam || brands.length === 0) return
+    const matchedBrand = manufacturerParam
+      ? brands.find((item) => item === manufacturerParam) || brands.find((item) => norm(item) === norm(manufacturerParam))
+      : undefined
 
-    const matchedBrand =
-      brands.find((item) => item === manufacturerParam) ||
-      brands.find((item) => norm(item) === norm(manufacturerParam))
-
-    if (matchedBrand) setBrand(matchedBrand)
+    setBrand(matchedBrand || 'all')
   }, [brands, searchParams])
 
   const categoryPathSections = (product: PublicCatalogPage) => {
@@ -108,6 +128,39 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
     return filtered
   }, [brand, category, direction, docsOnly, products, query, sort])
 
+  const setDirectionFilter = (value: string) => {
+    const nextDirection = value === 'all' ? 'all' : value
+    setDirection(nextDirection)
+    setCategory('all')
+    router.replace(
+      updateCatalogSearchParams(searchParams, {
+        direction: nextDirection === 'all' ? null : nextDirection,
+        category: null
+      }),
+      { scroll: false }
+    )
+  }
+
+  const setCategoryFilter = (value: string) => {
+    setCategory(value)
+    router.replace(
+      updateCatalogSearchParams(searchParams, {
+        category: value === 'all' ? null : value
+      }),
+      { scroll: false }
+    )
+  }
+
+  const setBrandFilter = (value: string) => {
+    setBrand(value)
+    router.replace(
+      updateCatalogSearchParams(searchParams, {
+        manufacturer: value === 'all' ? null : value
+      }),
+      { scroll: false }
+    )
+  }
+
   const resetFilters = () => {
     setQuery('')
     setDirection('all')
@@ -115,7 +168,12 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
     setBrand('all')
     setDocsOnly(false)
     setSort('popular')
+    router.replace('/catalog/', { scroll: false })
   }
+
+  const activeDirection = topNodes.find((node) => node.category.section === direction)?.category
+  const activeCategory = workingCategories.find((item) => item.section === category)
+  const hasActiveFilters = Boolean(activeDirection || activeCategory || brand !== 'all' || docsOnly)
 
   const filterPanel = (
     <div className="filter-panel">
@@ -127,7 +185,7 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
       </div>
       <label>
         <span>Направление</span>
-        <select value={direction} onChange={(event) => setDirection(event.target.value)}>
+        <select value={direction} onChange={(event) => setDirectionFilter(event.target.value)}>
           <option value="all">Все направления</option>
           {topNodes.map((node) => (
             <option key={node.category.section} value={node.category.section}>
@@ -138,7 +196,7 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
       </label>
       <label>
         <span>Категория</span>
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
+        <select value={category} onChange={(event) => setCategoryFilter(event.target.value)}>
           <option value="all">Все категории</option>
           {categoryOptions.map((item) => (
             <option key={item.section} value={item.section}>
@@ -149,7 +207,7 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
       </label>
       <label>
         <span>Производитель</span>
-        <select value={brand} onChange={(event) => setBrand(event.target.value)} disabled={brands.length === 0}>
+        <select value={brand} onChange={(event) => setBrandFilter(event.target.value)} disabled={brands.length === 0}>
           <option value="all">Все производители</option>
           {brands.map((item) => (
             <option key={item} value={item}>
@@ -203,7 +261,7 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
       </div>
 
       <div className="category-chip-row" aria-label="Быстрые направления">
-        <button type="button" className={direction === 'all' ? 'active' : ''} onClick={() => setDirection('all')}>
+        <button type="button" className={direction === 'all' ? 'active' : ''} onClick={() => setDirectionFilter('all')}>
           Все
         </button>
         {topNodes.map((node) => (
@@ -211,13 +269,43 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
             type="button"
             key={node.category.section}
             className={direction === node.category.section ? 'active' : ''}
-            onClick={() => setDirection(node.category.section)}
+            onClick={() => setDirectionFilter(node.category.section)}
           >
             {node.category.h1}
             <span>{node.descendantProductCount}</span>
           </button>
         ))}
       </div>
+
+      {hasActiveFilters && (
+        <div className="active-filter-row" aria-label="Активные фильтры">
+          <span>Активные фильтры:</span>
+          {activeDirection && (
+            <button type="button" onClick={() => setDirectionFilter('all')}>
+              {activeDirection.h1}
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+          {activeCategory && (
+            <button type="button" onClick={() => setCategoryFilter('all')}>
+              {activeCategory.h1}
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+          {brand !== 'all' && (
+            <button type="button" onClick={() => setBrandFilter('all')}>
+              {brand}
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+          {docsOnly && (
+            <button type="button" onClick={() => setDocsOnly(false)}>
+              Только с документами
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="catalog-layout">
         <aside className="filter-sidebar" aria-label="Фильтры каталога">
@@ -253,8 +341,12 @@ export function CatalogExplorer({ categories, products }: CatalogExplorerProps) 
           ) : (
             <div className="empty-state">
               <Filter size={28} aria-hidden="true" />
-              <h3>Ничего не найдено</h3>
-              <p>Попробуйте изменить запрос или отправьте заявку: менеджер проверит позицию вручную.</p>
+              <h3>{activeDirection ? 'В этом направлении пока нет позиций' : 'Ничего не найдено'}</h3>
+              <p>
+                {activeDirection
+                  ? 'Отправьте запрос - менеджер проверит изделие или предложит аналог.'
+                  : 'Попробуйте изменить запрос или отправьте заявку: менеджер проверит позицию вручную.'}
+              </p>
               <Link className="primary-action" href="/contacts/stores/#lead">
                 Отправить запрос
                 <ArrowRight size={16} aria-hidden="true" />

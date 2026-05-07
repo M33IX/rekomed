@@ -14,7 +14,7 @@ type MobileNavProps = {
   leadHref: string
 }
 
-const mobileNavigationOrder = ['Каталог', 'Направления', 'Документы', 'О компании', 'Контакты']
+const mobileNavigationOrder = ['Каталог', 'Документы', 'О компании', 'Контакты']
 const mobileNavigation = mobileNavigationOrder
   .map((label) => navigation.find((item) => item.label === label))
   .filter((item): item is (typeof navigation)[number] => Boolean(item))

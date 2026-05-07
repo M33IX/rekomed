@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, Search } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import type { PublicCatalogPage } from '@/lib/cms-content'
+import { getManufacturerCatalogHref } from '@/lib/catalog-links'
 
 type ManufacturerListingProps = {
   brands: PublicCatalogPage[]
@@ -13,7 +14,6 @@ type ManufacturerListingProps = {
 }
 
 const norm = (value: string) => value.toLowerCase().replaceAll('ё', 'е').trim()
-const catalogManufacturerHref = (title: string) => `/catalog/?manufacturer=${encodeURIComponent(title)}`
 
 export function ManufacturerListing({ brands, products, activeBrandPath }: ManufacturerListingProps) {
   const [query, setQuery] = useState('')
@@ -57,7 +57,7 @@ export function ManufacturerListing({ brands, products, activeBrandPath }: Manuf
               viewport={{ once: true, amount: 0.15 }}
               transition={{ duration: 0.24, delay: Math.min(index, 8) * 0.035 }}
             >
-              <Link className={brand.path === activeBrandPath ? 'manufacturer-card active' : 'manufacturer-card'} href={catalogManufacturerHref(brand.h1)}>
+              <Link className={brand.path === activeBrandPath ? 'manufacturer-card active' : 'manufacturer-card'} href={getManufacturerCatalogHref(brand.h1)}>
                 <span>
                   {brand.image ? <img src={brand.image} alt="" loading="lazy" /> : brand.h1.slice(0, 1).toUpperCase()}
                 </span>

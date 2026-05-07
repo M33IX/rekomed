@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Clock, FileText, Mail, MapPin, Phone, Search, Send, Shapes } from 'lucide-react'
 import { company, navigation } from '@/lib/content'
+import { HeaderBrandLink } from '@/components/HeaderBrandLink'
 import { MobileNav } from '@/components/MobileNav'
 import type { PublicSiteSettings } from '@/lib/site-settings'
 
@@ -13,13 +14,15 @@ const getPhoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 const getEmailHref = (email: string) => `mailto:${email}`
 const leadHref = '/contacts/stores/#lead'
 const desktopNavigation = navigation.filter((item) => item.href !== '/')
-const headerNavigationOrder = ['Каталог', 'Направления', 'Документы', 'О компании', 'Контакты']
+const headerNavigationOrder = ['Каталог', 'Документы', 'О компании', 'Контакты']
 const headerNavigation = headerNavigationOrder
   .map((label) => desktopNavigation.find((item) => item.label === label))
   .filter((item): item is (typeof desktopNavigation)[number] => Boolean(item))
-const footerCatalogLinks = desktopNavigation.filter((item) =>
-  ['Направления', 'Каталог', 'Производители'].includes(item.label)
-)
+const footerCatalogLinks = [
+  { href: '/catalog/', label: 'Каталог' },
+  { href: '/#directions', label: 'Направления' },
+  { href: '/#manufacturers', label: 'Производители' }
+]
 const footerCompanyLinks = desktopNavigation.filter((item) =>
   ['Документы', 'О компании', 'Контакты'].includes(item.label)
 )
@@ -39,10 +42,7 @@ export function SiteChrome({ children, settings }: SiteChromeProps) {
     <>
       <header className="site-header">
         <div className="nav-shell">
-          <Link className="brand" href="/" aria-label="RekoMed — на главную">
-            <span className="brand-mark">R</span>
-            <strong>RekoMed</strong>
-          </Link>
+          <HeaderBrandLink />
           <nav className="desktop-nav" aria-label="Основная навигация">
             {headerNavigation.map((item) => (
               <Link key={item.href} href={item.href}>

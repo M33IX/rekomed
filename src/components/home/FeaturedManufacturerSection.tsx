@@ -5,13 +5,12 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { PublicCatalogPage } from '@/lib/cms-content'
+import { getManufacturerCatalogHref } from '@/lib/catalog-links'
 
 type FeaturedManufacturerSectionProps = {
   brands: PublicCatalogPage[]
   products: PublicCatalogPage[]
 }
-
-const catalogManufacturerHref = (title: string) => `/catalog/?manufacturer=${encodeURIComponent(title)}`
 
 const getInitial = (title: string) => title.trim().slice(0, 1).toUpperCase() || 'R'
 
@@ -52,7 +51,7 @@ export function FeaturedManufacturerSection({ brands, products }: FeaturedManufa
               Перейдите к отфильтрованному списку, если нужно быстро собрать запрос по бренду.
             </p>
             <div className="manufacturer-actions">
-              <Link className="primary-action" href={catalogManufacturerHref(active.h1)}>
+              <Link className="primary-action" href={getManufacturerCatalogHref(active.h1)}>
                 Изделия производителя
                 <ArrowRight size={16} aria-hidden="true" />
               </Link>
