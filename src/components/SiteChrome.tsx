@@ -13,7 +13,10 @@ const getPhoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 const getEmailHref = (email: string) => `mailto:${email}`
 const leadHref = '/contacts/stores/#lead'
 const desktopNavigation = navigation.filter((item) => item.href !== '/')
-const headerNavigation = desktopNavigation.filter((item) => item.label !== 'Производители')
+const headerNavigationOrder = ['Каталог', 'Направления', 'Документы', 'О компании', 'Контакты']
+const headerNavigation = headerNavigationOrder
+  .map((label) => desktopNavigation.find((item) => item.label === label))
+  .filter((item): item is (typeof desktopNavigation)[number] => Boolean(item))
 const footerCatalogLinks = desktopNavigation.filter((item) =>
   ['Направления', 'Каталог', 'Производители'].includes(item.label)
 )
@@ -36,12 +39,9 @@ export function SiteChrome({ children, settings }: SiteChromeProps) {
     <>
       <header className="site-header">
         <div className="nav-shell">
-          <Link className="brand" href="/" aria-label="RekoMed">
+          <Link className="brand" href="/" aria-label="RekoMed — на главную">
             <span className="brand-mark">R</span>
-            <span>
-              <strong>RekoMed</strong>
-              <small>Медицинские изделия и расходные материалы.</small>
-            </span>
+            <strong>RekoMed</strong>
           </Link>
           <nav className="desktop-nav" aria-label="Основная навигация">
             {headerNavigation.map((item) => (
@@ -51,12 +51,9 @@ export function SiteChrome({ children, settings }: SiteChromeProps) {
             ))}
           </nav>
           <div className="header-actions">
-            <a className="header-contact" href={phoneHref}>
-              <Phone size={17} aria-hidden="true" />
+            <a className="header-contact" href={phoneHref} aria-label="Позвонить в RekoMed">
+              <Phone size={18} aria-hidden="true" />
               <span>{settings.phone}</span>
-            </a>
-            <a className="header-email" href={emailHref} aria-label={`Написать ${settings.email}`}>
-              <Mail size={17} aria-hidden="true" />
             </a>
             <Link className="primary-action header-cta" href={leadHref}>
               Запросить КП

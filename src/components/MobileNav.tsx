@@ -14,7 +14,10 @@ type MobileNavProps = {
   leadHref: string
 }
 
-const mobileNavigation = navigation.filter((item) => item.href !== '/' && item.label !== 'Производители')
+const mobileNavigationOrder = ['Каталог', 'Направления', 'Документы', 'О компании', 'Контакты']
+const mobileNavigation = mobileNavigationOrder
+  .map((label) => navigation.find((item) => item.label === label))
+  .filter((item): item is (typeof navigation)[number] => Boolean(item))
 
 export function MobileNav({ phone, phoneHref, email, emailHref, leadHref }: MobileNavProps) {
   const [open, setOpen] = useState(false)
