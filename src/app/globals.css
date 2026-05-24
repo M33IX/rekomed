@@ -1463,6 +1463,18 @@ main {
   margin-bottom: 22px;
 }
 
+.content-description {
+  display: grid;
+  gap: 12px;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.content-description p {
+  margin: 0;
+}
+
 .spec-table,
 .legal-list {
   display: grid;

@@ -10,6 +10,7 @@ import { getLegalPageByPath, type LegalPageDefinition } from '@/lib/legal-pages'
 export type PublicCatalogPage = CurrentSitePage & {
   source?: 'cms' | 'generated'
   updatedAt?: string
+  contentDescription?: string
   parentSection?: string | null
   sortOrder?: number | null
   categoryTitle?: string
@@ -179,6 +180,7 @@ const mapProduct = (product: Product): PublicCatalogPage => {
     title: product.seo?.metaTitle || product.title,
     h1: product.title,
     description: product.seo?.metaDescription || product.description || '',
+    contentDescription: product.description || '',
     section: category?.slug || 'cms',
     id: product.externalId || String(product.id),
     image,
@@ -206,6 +208,7 @@ const mapBrand = (brand: Brand): PublicCatalogPage => {
     title: brand.seo?.metaTitle || brand.title,
     h1: brand.title,
     description: brand.seo?.metaDescription || brand.description || '',
+    contentDescription: brand.description || '',
     section: brand.slug,
     id: String(brand.id),
     image,

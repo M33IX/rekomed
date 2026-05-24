@@ -132,6 +132,14 @@ const productSummary = (product: PublicCatalogPage) => {
   return 'Цена, наличие и документы уточняются по заявке. Менеджер поможет проверить параметры и подготовить КП.'
 }
 
+const descriptionParagraphs = (value: string | undefined) =>
+  (value || '')
+    .replaceAll('&quot;', '"')
+    .replace(/<[^>]*>/g, '')
+    .split(/\n+/)
+    .map((item) => item.replace(/\s+/g, ' ').trim())
+    .filter((item) => item && item !== 'Интернет-магазин')
+
 const getDirectionCount = (content: PublicContent, section: string) => {
   const category = content.categoryPages.find((item) => item.section === section)
   if (!category) return content.productPages.filter((item) => item.section === section).length
@@ -545,6 +553,7 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
   const direction = getProductDirectionCategory(content, product)
   const directionHref = direction ? getDirectionCatalogHref(direction.section) : ''
   const categoryHref = getCategoryCatalogHref(category.section, direction?.section)
+  const productDescription = descriptionParagraphs(product.contentDescription)
   const productBreadcrumbs = [
     { href: '/', label: 'Главная' },
     { href: '/catalog/', label: 'Каталог' },
@@ -608,6 +617,17 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
 
       <RevealSection className="section product-detail-layout" id="product-lead">
         <div className="product-main-panels">
+          {productDescription.length > 0 && (
+            <section className="info-panel">
+              <SectionHead kicker="Описание" title="Описание товара" />
+              <div className="content-description">
+                {productDescription.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="info-panel">
             <SectionHead kicker="Характеристики" title="Данные для первичного подбора" />
             <dl className="spec-table">
@@ -704,18 +724,32 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
 }
 
 export function BrandPage({ page, content = generatedPublicContent }: { page: PublicCatalogPage; content?: PublicContent }) {
+  const brandDescription = descriptionParagraphs(page.contentDescription)
+
   return (
     <>
       <RevealSection className="page-hero compact-hero">
-        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: 'Производители' }]} />
-        <span className="section-kicker">Бренды в каталоге</span>
-        <h1>Производители</h1>
-        <p>Найдите изделия по производителю или перейдите в каталог с готовым фильтром.</p>
+        <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: page.path, label: page.h1 }]} />
+        <span className="section-kicker">Производитель</span>
+        <h1>{page.h1}</h1>
+        <p>{cleanText(page.contentDescription || page.description, 'Изделия производителя в каталоге RekoMed для подбора по заявке.')}</p>
         <Link className="primary-action" href="/catalog/">
           Перейти в каталог
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
       </RevealSection>
+      {brandDescription.length > 0 && (
+        <RevealSection className="section">
+          <div className="info-panel">
+            <SectionHead kicker="О бренде" title={page.h1} />
+            <div className="content-description">
+              {brandDescription.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+          </div>
+        </RevealSection>
+      )}
       <RevealSection className="section">
         <SectionHead
           kicker="Изделия по производителям"
