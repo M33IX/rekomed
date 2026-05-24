@@ -17,7 +17,8 @@
     "sync:current-site": "node scripts/sync-current-site.mjs",
     "import:current-site": "node scripts/import-current-site-to-payload.mjs",
     "import:current-site-media": "node scripts/import-current-site-media.mjs",
-    "audit:urls": "node scripts/audit-urls.mjs"
+    "audit:urls": "node scripts/audit-urls.mjs",
+    "seo:migration-check": "node scripts/seo-migration-check.mjs"
   },
   "dependencies": {
     "@payloadcms/db-postgres": "^3.84.0",

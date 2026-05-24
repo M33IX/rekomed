@@ -6,9 +6,12 @@ const SOURCE = new URL('../src/data/current-site.generated.ts', import.meta.url)
 
 const args = new Set(process.argv.slice(2))
 const dryRun = args.has('--dry-run')
+const strict = args.has('--strict')
 const apiUrl = (process.env.PAYLOAD_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
 const email = process.env.PAYLOAD_IMPORT_EMAIL || process.env.PAYLOAD_EMAIL || 'test@test.test'
 const password = process.env.PAYLOAD_IMPORT_PASSWORD || process.env.PAYLOAD_PASSWORD || '123'
+const legacyMediaOrigin = (process.env.LEGACY_MEDIA_ORIGIN || '').replace(/\/$/, '')
+const legacyMediaHostHeader = process.env.LEGACY_MEDIA_HOST_HEADER || ''
 
 const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim()
 
@@ -72,10 +75,19 @@ const filenameFromUrl = (url) => {
 
 const brandSlugFromPath = (path) => path.split('/').filter(Boolean).at(-1) || ''
 
+const mediaUrl = (url) => {
+  if (!legacyMediaOrigin) return url
+  const parsed = new URL(url)
+  const resolved = new URL(parsed.pathname, legacyMediaOrigin)
+  resolved.search = parsed.search
+  return resolved.toString()
+}
+
 const fetchImage = async (url) => {
-  const response = await fetch(url, {
+  const response = await fetch(mediaUrl(url), {
     headers: {
-      'user-agent': 'Mozilla/5.0 RekoMed media import'
+      'user-agent': 'Mozilla/5.0 RekoMed media import',
+      ...(legacyMediaHostHeader ? { host: legacyMediaHostHeader } : {})
     }
   })
 
@@ -175,7 +187,11 @@ const main = async () => {
     }
   }
 
-  console.log(JSON.stringify({ apiUrl, dryRun, targets: targets.length, stats, failures }, null, 2))
+  console.log(JSON.stringify({ apiUrl, dryRun, strict, targets: targets.length, stats, failures }, null, 2))
+
+  if (strict && (stats.failed > 0 || stats.missingDoc > 0)) {
+    process.exitCode = 1
+  }
 }
 
 main().catch((error) => {

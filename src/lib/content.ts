@@ -5,7 +5,7 @@ import {
   type CurrentSitePage
 } from '@/data/current-site.generated'
 
-export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reko-med.ru'
+export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://reko-med.ru').replace(/\/$/, '')
 
 export const company = {
   name: 'RekoMed',

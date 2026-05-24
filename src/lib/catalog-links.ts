@@ -8,7 +8,7 @@ type CatalogFilterParams = {
   manufacturer?: CatalogFilterValue
 }
 
-const catalogBasePath = '/catalog'
+const catalogBasePath = '/catalog/'
 
 const directionAliases: Record<string, string> = {
   hirurgiya: 'khirurgiya',
