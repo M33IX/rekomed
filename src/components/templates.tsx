@@ -263,14 +263,19 @@ function LeadSection({
   text = 'Готовы помочь с подбором изделий и подготовкой КП под вашу задачу.',
   kicker = 'Заявка менеджеру',
   type = 'quote',
-  source = 'contacts'
+  source = 'contacts',
+  settings
 }: {
   title?: string
   text?: string
   kicker?: string
   type?: Parameters<typeof LeadForm>[0]['type']
   source?: Parameters<typeof LeadForm>[0]['source']
+  settings?: PublicSiteSettings
 }) {
+  const phone = settings?.phone || company.phone
+  const email = settings?.email || company.email
+
   return (
     <RevealSection className="section lead-section" id="lead">
       <div>
@@ -278,13 +283,13 @@ function LeadSection({
         <h2>{title}</h2>
         <p>{text}</p>
         <div className="contact-lines">
-          <a href={company.phoneHref}>
+          <a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>
             <Phone size={16} aria-hidden="true" />
-            {company.phone}
+            {phone}
           </a>
-          <a href={company.emailHref}>
+          <a href={`mailto:${email}`}>
             <Mail size={16} aria-hidden="true" />
-            {company.email}
+            {email}
           </a>
           <span>
             <Clock size={16} aria-hidden="true" />
@@ -303,7 +308,7 @@ function LeadSection({
   )
 }
 
-export function HomePage({ content = generatedPublicContent }: { content?: PublicContent }) {
+export function HomePage({ content = generatedPublicContent, settings }: { content?: PublicContent; settings?: PublicSiteSettings }) {
   const preferredArticles = ['1026', '1027', '1028', '1058']
   const preferred = preferredArticles
     .map((article) => content.productPages.find((product) => product.id === article))
@@ -401,7 +406,7 @@ export function HomePage({ content = generatedPublicContent }: { content?: Publi
         </RevealSection>
       )}
       <DocumentsBand />
-      <LeadSection source="home" />
+      <LeadSection source="home" settings={settings} />
     </>
   )
 }
@@ -446,7 +451,15 @@ export function CatalogPage({
   )
 }
 
-export function CategoryPage({ page, content = generatedPublicContent }: { page: PublicCatalogPage; content?: PublicContent }) {
+export function CategoryPage({
+  page,
+  content = generatedPublicContent,
+  settings
+}: {
+  page: PublicCatalogPage
+  content?: PublicContent
+  settings?: PublicSiteSettings
+}) {
   const products = getCategoryProducts(content, page.section)
   const node = getCategoryNode(page, content.categoryPages, content.productPages)
   const ancestors = getCategoryAncestors(page, content.categoryPages)
@@ -536,7 +549,12 @@ export function CategoryPage({ page, content = generatedPublicContent }: { page:
         </RevealSection>
       )}
 
-      <LeadSection title="Запросить подбор по категории" text="Укажите нужный тип изделия, количество или характеристики. Мы уточним наличие, документы и цену." source="catalog" />
+      <LeadSection
+        title="Запросить подбор по категории"
+        text="Укажите нужный тип изделия, количество или характеристики. Мы уточним наличие, документы и цену."
+        source="catalog"
+        settings={settings}
+      />
     </>
   )
 }
@@ -723,7 +741,15 @@ export function ProductPage({ product, content = generatedPublicContent }: { pro
   )
 }
 
-export function BrandPage({ page, content = generatedPublicContent }: { page: PublicCatalogPage; content?: PublicContent }) {
+export function BrandPage({
+  page,
+  content = generatedPublicContent,
+  settings
+}: {
+  page: PublicCatalogPage
+  content?: PublicContent
+  settings?: PublicSiteSettings
+}) {
   const brandDescription = descriptionParagraphs(page.contentDescription)
 
   return (
@@ -758,7 +784,12 @@ export function BrandPage({ page, content = generatedPublicContent }: { page: Pu
         />
         <ManufacturerListing brands={content.brandPages} products={content.productPages} activeBrandPath={page.path} />
       </RevealSection>
-      <LeadSection title="Запросить позиции производителя" text="Напишите, какие изделия или документы по бренду нужны. Менеджер уточнит доступные позиции и условия поставки." source="catalog" />
+      <LeadSection
+        title="Запросить позиции производителя"
+        text="Напишите, какие изделия или документы по бренду нужны. Менеджер уточнит доступные позиции и условия поставки."
+        source="catalog"
+        settings={settings}
+      />
     </>
   )
 }
@@ -937,7 +968,7 @@ export function LegalPage({ page, settings }: { page: LegalPageDefinition; setti
   )
 }
 
-export function CompanyPage() {
+export function CompanyPage({ settings }: { settings?: PublicSiteSettings }) {
   return (
     <>
       <RevealSection className="page-hero company-hero">
@@ -976,7 +1007,12 @@ export function CompanyPage() {
 
       <ProcessSection />
       <TrustSection />
-      <LeadSection title="Нужна помощь с подбором?" text="Оставьте заявку - подготовим КП и уточним документы." source="contacts" />
+      <LeadSection
+        title="Нужна помощь с подбором?"
+        text="Оставьте заявку - подготовим КП и уточним документы."
+        source="contacts"
+        settings={settings}
+      />
     </>
   )
 }
@@ -1067,7 +1103,7 @@ export function InfoPage({ page, settings }: { page: PublicCatalogPage; settings
         <h1>{page.h1}</h1>
         <p>{cleanText(page.description, 'Информация RekoMed для клиентов, партнеров и закупочных отделов.')}</p>
       </RevealSection>
-      <LeadSection />
+      <LeadSection settings={settings} />
     </>
   )
 }
