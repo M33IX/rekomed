@@ -1823,6 +1823,14 @@ main {
   line-height: 1.65;
 }
 
+.manufacturer-feature-meta {
+  display: block;
+  margin-top: 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .manufacturer-actions {
   display: flex;
   flex-wrap: wrap;

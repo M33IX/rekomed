@@ -81,7 +81,17 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   let content: ReactNode
   if (route.type === 'home') content = <HomePage content={publicContent} settings={siteSettings} />
-  else if (route.type === 'catalog') content = <CatalogPage content={publicContent} initialDirection={getFirstSearchParam(resolvedSearchParams.direction)} />
+  else if (route.type === 'catalog') {
+    content = (
+      <CatalogPage
+        content={publicContent}
+        initialDirection={getFirstSearchParam(resolvedSearchParams.direction)}
+        initialManufacturer={
+          getFirstSearchParam(resolvedSearchParams.manufacturer) || getFirstSearchParam(resolvedSearchParams.brand)
+        }
+      />
+    )
+  }
   else if (route.type === 'category') content = <CategoryPage page={route.page} content={publicContent} settings={siteSettings} />
   else if (route.type === 'product') content = <ProductPage product={route.page} content={publicContent} />
   else if (route.type === 'brand') content = <BrandPage page={route.page} content={publicContent} settings={siteSettings} />

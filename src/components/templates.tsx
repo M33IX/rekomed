@@ -114,6 +114,18 @@ const cleanText = (value: string | undefined, fallback: string) => {
   return text.length > 190 ? `${text.slice(0, 187)}...` : text
 }
 
+const normalizeFilterText = (value: string | undefined) => (value || '').toLowerCase().replaceAll('ё', 'е').trim()
+
+const getCatalogBrand = (content: PublicContent, manufacturer?: string) => {
+  const normalizedManufacturer = normalizeFilterText(manufacturer)
+  if (!normalizedManufacturer) return undefined
+
+  return content.brandPages.find((brand) => {
+    const values = [brand.h1, brand.title, brand.section, brand.id]
+    return values.some((value) => normalizeFilterText(value) === normalizedManufacturer)
+  })
+}
+
 const formatCategoryCount = (count: number) => {
   const mod10 = count % 10
   const mod100 = count % 100
@@ -413,16 +425,26 @@ export function HomePage({ content = generatedPublicContent, settings }: { conte
 
 export function CatalogPage({
   content = generatedPublicContent,
-  initialDirection
+  initialDirection,
+  initialManufacturer
 }: {
   content?: PublicContent
   initialDirection?: string
+  initialManufacturer?: string
 }) {
   const activeDirection = getCatalogDirection(content, initialDirection)
-  const catalogTitle = activeDirection
+  const activeBrand = getCatalogBrand(content, initialManufacturer)
+  const catalogTitle = activeBrand
+    ? activeBrand.h1
+    : activeDirection
     ? directionCatalogHeadings[activeDirection.section] || `Изделия направления «${activeDirection.h1}»`
     : 'Каталог медицинских изделий'
-  const catalogDescription = activeDirection
+  const catalogDescription = activeBrand
+    ? cleanText(
+        activeBrand.shortDescription || activeBrand.contentDescription || activeBrand.description,
+        `Изделия производителя ${activeBrand.h1} в каталоге RekoMed: цена, наличие и документы уточняются по заявке.`
+      )
+    : activeDirection
     ? `Позиции направления «${activeDirection.h1}»: уточняйте наличие, цену и документы по заявке.`
     : 'Найдите изделие по названию, артикулу, направлению или производителю. Если нужной позиции нет в каталоге, отправьте запрос менеджеру.'
 
@@ -431,7 +453,7 @@ export function CatalogPage({
       <RevealSection className="catalog-page-head">
         <div>
           <Breadcrumbs items={[{ href: '/', label: 'Главная' }, { href: '/catalog/', label: 'Каталог' }]} />
-          <span className="section-kicker">Каталог</span>
+          <span className="section-kicker">{activeBrand ? 'Производитель' : 'Каталог'}</span>
           <h1>{catalogTitle}</h1>
           <p>{catalogDescription}</p>
         </div>

@@ -11,6 +11,7 @@ export type PublicCatalogPage = CurrentSitePage & {
   source?: 'cms' | 'generated'
   updatedAt?: string
   contentDescription?: string
+  shortDescription?: string
   parentSection?: string | null
   sortOrder?: number | null
   categoryTitle?: string
@@ -108,6 +109,10 @@ const productPath = (product: Product) => normalizePathValue(product.legacyPath 
 
 const brandPath = (brand: Brand) => normalizePathValue(`/brands/${brand.slug}/`)
 
+type BrandWithShortDescription = Brand & {
+  shortDescription?: string | null
+}
+
 const companyPage: PublicCatalogPage = {
   url: `${siteUrl}/company/`,
   path: '/company/',
@@ -200,6 +205,7 @@ const mapBrand = (brand: Brand): PublicCatalogPage => {
   const path = brandPath(brand)
   const legacy = legacyPageByPath.get(path)
   const image = mediaUrl(brand.logo) || legacy?.image || ''
+  const shortDescription = toString((brand as BrandWithShortDescription).shortDescription)
 
   return {
     url: `${siteUrl}${path}`,
@@ -209,6 +215,7 @@ const mapBrand = (brand: Brand): PublicCatalogPage => {
     h1: brand.title,
     description: brand.seo?.metaDescription || brand.description || '',
     contentDescription: brand.description || '',
+    shortDescription,
     section: brand.slug,
     id: String(brand.id),
     image,

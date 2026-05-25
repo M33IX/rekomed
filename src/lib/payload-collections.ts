@@ -162,6 +162,14 @@ export const Brands: CollectionConfig = {
     { name: 'title', type: 'text', required: true },
     { name: 'slug', type: 'text', required: true, unique: true },
     { name: 'description', type: 'textarea' },
+    {
+      name: 'shortDescription',
+      label: 'Краткое описание',
+      type: 'textarea',
+      admin: {
+        description: 'Короткий текст для блока производителя на главной и шапки каталога при фильтре по бренду.'
+      }
+    },
     { name: 'logo', type: 'upload', relationTo: 'media' },
     { name: 'seo', type: 'group', fields: seoFields }
   ]

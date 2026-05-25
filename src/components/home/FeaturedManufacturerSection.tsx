@@ -14,6 +14,25 @@ type FeaturedManufacturerSectionProps = {
 
 const getInitial = (title: string) => title.trim().slice(0, 1).toUpperCase() || 'R'
 
+const formatPositionCount = (count: number) => {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return `${count} позиция`
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return `${count} позиции`
+  return `${count} позиций`
+}
+
+const cleanBrandText = (value: string | undefined) => {
+  const text = (value || '')
+    .replaceAll('&quot;', '"')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!text || text === 'Интернет-магазин') return ''
+  return text.length > 280 ? `${text.slice(0, 277)}...` : text
+}
+
 export function FeaturedManufacturerSection({ brands, products }: FeaturedManufacturerSectionProps) {
   const reduced = useReducedMotion()
   const manufacturers = useMemo(
@@ -30,6 +49,7 @@ export function FeaturedManufacturerSection({ brands, products }: FeaturedManufa
   )
   const [activePath, setActivePath] = useState(manufacturers[0]?.path || '')
   const active = manufacturers.find((brand) => brand.path === activePath) || manufacturers[0]
+  const activeDescription = cleanBrandText(active?.shortDescription || active?.contentDescription || active?.description)
 
   if (!active || manufacturers.length < 2) return null
 
@@ -47,9 +67,10 @@ export function FeaturedManufacturerSection({ brands, products }: FeaturedManufa
           >
             <h2 id="manufacturer-feature-title">{active.h1}</h2>
             <p>
-              В каталоге есть {active.productCount} {active.productCount === 1 ? 'позиция' : 'позиций'} этого производителя.
-              Перейдите к отфильтрованному списку, если нужно быстро собрать запрос по бренду.
+              {activeDescription ||
+                `В каталоге есть ${formatPositionCount(active.productCount)} этого производителя. Перейдите к отфильтрованному списку, если нужно быстро собрать запрос по бренду.`}
             </p>
+            {activeDescription && <span className="manufacturer-feature-meta">{formatPositionCount(active.productCount)} в каталоге</span>}
             <div className="manufacturer-actions">
               <Link className="primary-action" href={getManufacturerCatalogHref(active.h1)}>
                 Изделия производителя
