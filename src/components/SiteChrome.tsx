@@ -56,7 +56,7 @@ export function SiteChrome({ children, settings }: SiteChromeProps) {
               <span>{settings.phone}</span>
             </a>
             <Link className="primary-action header-cta" href={leadHref}>
-              Запросить КП
+              {settings.mainCta}
               <Send size={16} aria-hidden="true" />
             </Link>
             <MobileNav
@@ -82,7 +82,7 @@ export function SiteChrome({ children, settings }: SiteChromeProps) {
             </Link>
             <p>{company.tagline}</p>
             <Link className="primary-action footer-cta" href={leadHref}>
-              Запросить КП
+              {settings.mainCta}
               <Send size={16} aria-hidden="true" />
             </Link>
           </div>
