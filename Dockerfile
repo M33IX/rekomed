@@ -35,12 +35,12 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src ./src
 
 RUN mkdir -p /app/var /app/media \
-  && chown nextjs:nodejs /app/var /app/media \
+  && chown -R nextjs:nodejs /app/.next /app/var /app/media \
   && printf '%s\n' \
     '#!/bin/sh' \
     'set -e' \
     'mkdir -p /app/var /app/media' \
-    'chown -R nextjs:nodejs /app/var /app/media' \
+    'chown -R nextjs:nodejs /app/.next /app/var /app/media' \
     'exec su-exec nextjs:nodejs "$@"' \
     > /usr/local/bin/docker-entrypoint.sh \
   && chmod +x /usr/local/bin/docker-entrypoint.sh

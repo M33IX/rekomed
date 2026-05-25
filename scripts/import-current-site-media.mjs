@@ -23,7 +23,8 @@ const parseGeneratedPages = async () => {
 }
 
 const requestJson = async (path, options = {}) => {
-  const response = await fetch(`${apiUrl}${path}`, {
+  const normalizedPath = path.includes('?') ? path.replace('?', '/?') : `${path}/`
+  const response = await fetch(`${apiUrl}${normalizedPath}`, {
     ...options,
     headers: {
       ...(options.json ? { 'content-type': 'application/json' } : {}),

@@ -4,6 +4,7 @@ import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { buildConfig } from 'payload'
 import sharp from 'sharp'
+import { payloadEmailAdapter } from '@/lib/payload-email'
 import {
   Articles,
   Brands,
@@ -36,6 +37,7 @@ export default buildConfig({
     admin: '/admin',
     api: '/api/payload'
   },
+  email: payloadEmailAdapter,
   editor: lexicalEditor(),
   collections: [Users, Media, Directions, Categories, Products, Brands, Documents, Articles, Leads],
   globals: [SiteSettings],
